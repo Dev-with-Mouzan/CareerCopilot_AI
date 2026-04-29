@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MatchForge-AI | Forge Your Future with AI</title>
+    <meta name="description" content="MatchForge-AI leverages CrewAI to orchestrate multi-agent workflows for the ultimate job matching and career coaching experience.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="background-container">
+        <img src="assets/hero-bg.png" alt="Futuristic Background" class="bg-image">
+        <div class="overlay"></div>
+    </div>
+
+    <nav>
+        <div class="logo">MatchForge<span>AI</span></div>
+        <ul class="nav-links">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#agents">Our Agents</a></li>
+            <li><a href="#contact">Contact</a></li>
+        </ul>
+        <button class="btn-primary">Launch App</button>
+    </nav>
+
+    <main>
+        <section class="hero">
+            <div class="hero-content">
+                <h1 class="fade-in">Forge Your Path to <span class="highlight">Success</span></h1>
+                <p class="fade-in delay-1">Powered by CrewAI, MatchForge-AI uses autonomous agents to find, analyze, and secure your next big opportunity.</p>
+                <div class="hero-btns fade-in delay-2">
+                    <button id="start-matching" class="btn-primary large">Start Matching</button>
+                    <button class="btn-secondary large">Learn More</button>
+                </div>
+                
+                <!-- File Upload Section -->
+                <div class="upload-container fade-in delay-3">
+                    <input type="file" id="resume-upload" accept=".pdf" hidden>
+                    <label for="resume-upload" class="upload-box">
+                        <span class="icon">📄</span>
+                        <p>Click to upload or drag & drop your Resume (PDF)</p>
+                    </label>
+                    <div id="file-status" class="file-status"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="features" class="features">
+            <div class="section-header">
+                <h2>Why Choose MatchForge-AI?</h2>
+                <p>Advanced multi-agent systems working 24/7 for you.</p>
+            </div>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="icon">🔍</div>
+                    <h3>Precision Scouting</h3>
+                    <p>Our scouts scour thousands of listings to find your perfect fit.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">📊</div>
+                    <h3>AI Analysis</h3>
+                    <p>In-depth resume-to-job matching with detailed compatibility scores.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">🤖</div>
+                    <h3>CrewAI Orchestration</h3>
+                    <p>Sophisticated agent handoffs for a seamless career journey.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 MatchForge-AI. All rights reserved.</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
