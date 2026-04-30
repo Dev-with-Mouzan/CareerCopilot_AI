@@ -20,24 +20,24 @@ class CareerCopilotAi():
     # If you would like to add tools to your agents, you can learn more about it here:
     # https://docs.crewai.com/concepts/agents#agent-tools
     @agent
-    def job_scraper(self) -> Agent:
+    def job_hunter(self) -> Agent:
         return Agent(
-            config=self.agents_config['job_scraper'], # type: ignore[index]
+            config=self.agents_config['job_hunter'], # type: ignore[index]
             tools=[TopJobsScraperTool()],
             verbose=True
         )
 
     @agent
-    def ats_scorer(self) -> Agent:
+    def ats_analyst(self) -> Agent:
         return Agent(
-            config=self.agents_config['ats_scorer'], # type: ignore[index]
+            config=self.agents_config['ats_analyst'], # type: ignore[index]
             verbose=True
         )
 
     @agent
-    def career_coach(self) -> Agent:
+    def career_strategist(self) -> Agent:
         return Agent(
-            config=self.agents_config['career_coach'], # type: ignore[index]
+            config=self.agents_config['career_strategist'], # type: ignore[index]
             tools=[VectorDBQueryTool()],
             verbose=True,
             memory=True
@@ -47,22 +47,33 @@ class CareerCopilotAi():
     # task dependencies, and task callbacks, check out the documentation:
     # https://docs.crewai.com/concepts/tasks#overview-of-a-task
     @task
-    def scrape_jobs_task(self) -> Task:
+    def scrape_jobs_listings_task(self) -> Task:
         return Task(
-            config=self.tasks_config['scrape_jobs_task'], # type: ignore[index]
+            config=self.tasks_config['scrape_jobs_listings_task'], # type: ignore[index]
         )
 
     @task
-    def ats_scoring_task(self) -> Task:
+    def analyze_job_matches_task(self) -> Task:
         return Task(
-            config=self.tasks_config['ats_scoring_task'], # type: ignore[index]
-            output_file='ats_jobs_report.md'
+            config=self.tasks_config['analyze_job_matches_task'], # type: ignore[index]
         )
 
     @task
-    def career_coaching_task(self) -> Task:
+    def identify_skill_gaps_task(self) -> Task:
         return Task(
-            config=self.tasks_config['career_coaching_task'], # type: ignore[index]
+            config=self.tasks_config['identify_skill_gaps_task'], # type: ignore[index]
+        )
+
+    @task
+    def optimize_resume_task(self) -> Task:
+        return Task(
+            config=self.tasks_config['optimize_resume_task'], # type: ignore[index]
+        )
+
+    @task
+    def provide_strategic_guidance_task(self) -> Task:
+        return Task(
+            config=self.tasks_config['provide_strategic_guidance_task'], # type: ignore[index]
         )
 
     @crew
