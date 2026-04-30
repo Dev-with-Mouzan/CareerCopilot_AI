@@ -23,18 +23,13 @@ ats_scoring_task:
     2. A list of missing keywords in the resume that are required/preferred for the job.
     3. A short explanation of why this job is being displayed to the user (the reasoning for the match).
   expected_output: >
-    A detailed markdown report listing the top jobs. For each job, include:
-    - Job Title, Company, and Link
-    - ATS Score: [Score]/100
-    - Missing Keywords: [List of keywords]
-    - Match Reasoning: [Explanation]
+    A structured JSON list of the top jobs, where each job contains the job title, company, link, the ATS score, missing keywords, and the reasoning for the match.
   agent: ats_scorer
 
 career_coaching_task:
   description: >
     The user has asked a question: "{user_query}"
-    Use your tools to query the job database if needed, and answer the question 
-    while providing actionable career advice based on the user's resume: "{resume}"
+    Answer the question while providing actionable career advice based on the user's resume: "{resume}"
   expected_output: >
     A helpful, friendly, and actionable response answering the user's question.
   agent: career_coach

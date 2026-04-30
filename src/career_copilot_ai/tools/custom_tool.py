@@ -5,15 +5,34 @@ import json
 import os
 from pydantic import BaseModel, Field
 from typing import Type, List
-
-# Try to import FAISS and sentence_transformers
 try:
-    from sentence_transformers import SentenceTransformer
     import faiss
-    embedder = SentenceTransformer('all-MiniLM-L6-v2')
+    import numpy as np
 except ImportError:
-    embedder = None
     faiss = None
+
+class GoogleEmbedder:
+    def __init__(self):
+        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+        from dotenv import load_dotenv
+        import os
+        load_dotenv()
+        api_key = os.environ.get("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY not found in environment")
+        self.model = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=api_key)
+        
+    def encode(self, texts):
+        if isinstance(texts, str):
+            texts = [texts]
+        embeddings = self.model.embed_documents(texts)
+        return np.array(embeddings).astype('float32')
+
+try:
+    embedder = GoogleEmbedder()
+except Exception as e:
+    print(f"Failed to load Google Embedder: {e}")
+    embedder = None
 
 class TopJobsScraperInput(BaseModel):
     """Input schema for TopJobsScraperTool."""

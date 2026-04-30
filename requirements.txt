@@ -5,7 +5,6 @@ crewai[tools]
 langchain
 langchain-community
 pypdf
-sentence-transformers
 scikit-learn
 requests
 langchain-groq
@@ -14,3 +13,4 @@ python-dotenv
 beautifulsoup4
 faiss-cpu
 PyPDF2
+litellm
