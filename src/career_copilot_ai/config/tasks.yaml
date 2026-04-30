@@ -1,0 +1,40 @@
+scrape_jobs_task:
+  description: >
+    Visit the following websites to extract remote job opportunities:
+    {websites}
+    
+    For each website, use your TopJobsScraperTool to extract the most relevant 
+    job postings based on the user's resume:
+    {resume}
+    
+    Compile the top 8 to 10 best matching jobs overall.
+  expected_output: >
+    A markdown formatted list of the top 8-10 job opportunities across all websites.
+    Include the Job Title, Company, Link, and the raw text chunk for each job.
+  agent: job_scraper
+
+ats_scoring_task:
+  description: >
+    Review the top 8-10 jobs provided by the scraper. Compare each job against the user's resume:
+    {resume}
+    
+    For each job, provide:
+    1. An ATS Score out of 100 based on keyword match and experience alignment.
+    2. A list of missing keywords in the resume that are required/preferred for the job.
+    3. A short explanation of why this job is being displayed to the user (the reasoning for the match).
+  expected_output: >
+    A detailed markdown report listing the top jobs. For each job, include:
+    - Job Title, Company, and Link
+    - ATS Score: [Score]/100
+    - Missing Keywords: [List of keywords]
+    - Match Reasoning: [Explanation]
+  agent: ats_scorer
+
+career_coaching_task:
+  description: >
+    The user has asked a question: "{user_query}"
+    Use your tools to query the job database if needed, and answer the question 
+    while providing actionable career advice based on the user's resume: "{resume}"
+  expected_output: >
+    A helpful, friendly, and actionable response answering the user's question.
+  agent: career_coach

@@ -14,7 +14,7 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "MatchForge-AI API is running"}
+    return {"status": "CareerCopilot-AI API is running"}
 
 @app.post("/api/upload-resume")
 async def upload_resume(file: UploadFile = File(...)):

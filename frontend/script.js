@@ -1,12 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('MatchForge-AI Frontend Loaded');
+    console.log('CareerCopilot-AI Frontend Loaded');
 
-    const startBtn = document.getElementById('start-matching');
-    
-    if (startBtn) {
-        startBtn.addEventListener('click', () => {
-            alert('MatchForge-AI Agents are warming up! This feature is coming soon.');
-            console.log('User clicked Start Matching');
+    // Add interactivity or fetch data from API here
+    const getStartedBtn = document.querySelector('.cta-btn');
+    if(getStartedBtn) {
+        getStartedBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            alert('CareerCopilot-AI Agents are warming up! This feature is coming soon.');
         });
     }
 

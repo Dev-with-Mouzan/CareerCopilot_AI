@@ -1,13 +1,14 @@
 from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 from crewai.agents.agent_builder.base_agent import BaseAgent
+from career_copilot_ai.tools.custom_tool import TopJobsScraperTool, VectorDBQueryTool
 # If you want to run a snippet of code before or after the crew starts,
 # you can use the @before_kickoff and @after_kickoff decorators
 # https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators
 
 @CrewBase
-class MatchforgeAi():
-    """MatchforgeAi crew"""
+class CareerCopilotAi():
+    """CareerCopilotAi crew"""
 
     agents: list[BaseAgent]
     tasks: list[Task]
@@ -19,38 +20,54 @@ class MatchforgeAi():
     # If you would like to add tools to your agents, you can learn more about it here:
     # https://docs.crewai.com/concepts/agents#agent-tools
     @agent
-    def researcher(self) -> Agent:
+    def job_scraper(self) -> Agent:
         return Agent(
-            config=self.agents_config['researcher'], # type: ignore[index]
+            config=self.agents_config['job_scraper'], # type: ignore[index]
+            tools=[TopJobsScraperTool()],
             verbose=True
         )
 
     @agent
-    def reporting_analyst(self) -> Agent:
+    def ats_scorer(self) -> Agent:
         return Agent(
-            config=self.agents_config['reporting_analyst'], # type: ignore[index]
+            config=self.agents_config['ats_scorer'], # type: ignore[index]
             verbose=True
+        )
+
+    @agent
+    def career_coach(self) -> Agent:
+        return Agent(
+            config=self.agents_config['career_coach'], # type: ignore[index]
+            tools=[VectorDBQueryTool()],
+            verbose=True,
+            memory=True
         )
 
     # To learn more about structured task outputs,
     # task dependencies, and task callbacks, check out the documentation:
     # https://docs.crewai.com/concepts/tasks#overview-of-a-task
     @task
-    def research_task(self) -> Task:
+    def scrape_jobs_task(self) -> Task:
         return Task(
-            config=self.tasks_config['research_task'], # type: ignore[index]
+            config=self.tasks_config['scrape_jobs_task'], # type: ignore[index]
         )
 
     @task
-    def reporting_task(self) -> Task:
+    def ats_scoring_task(self) -> Task:
         return Task(
-            config=self.tasks_config['reporting_task'], # type: ignore[index]
-            output_file='report.md'
+            config=self.tasks_config['ats_scoring_task'], # type: ignore[index]
+            output_file='ats_jobs_report.md'
+        )
+
+    @task
+    def career_coaching_task(self) -> Task:
+        return Task(
+            config=self.tasks_config['career_coaching_task'], # type: ignore[index]
         )
 
     @crew
     def crew(self) -> Crew:
-        """Creates the MatchforgeAi crew"""
+        """Creates the CareerCopilotAi crew"""
         # To learn how to add knowledge sources to your crew, check out the documentation:
         # https://docs.crewai.com/concepts/knowledge#what-is-knowledge
 
@@ -59,5 +76,6 @@ class MatchforgeAi():
             tasks=self.tasks, # Automatically created by the @task decorator
             process=Process.sequential,
             verbose=True,
+            memory=True,
             # process=Process.hierarchical, # In case you wanna use that instead https://docs.crewai.com/how-to/Hierarchical/
         )

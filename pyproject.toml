@@ -1,20 +1,26 @@
 [project]
-name = "matchforge_ai"
+name = "career_copilot_ai"
 version = "0.1.0"
-description = "MatchForge AI using crewAI"
+description = "CareerCopilot AI using crewAI"
 authors = [{ name = "Your Name", email = "you@example.com" }]
 requires-python = ">=3.10,<3.14"
 dependencies = [
-    "crewai[tools]==1.13.0"
+    "beautifulsoup4>=4.13.5",
+    "crewai[tools]==1.13.0",
+    "faiss-cpu>=1.13.2",
+    "pypdf2>=3.0.1",
+    "requests>=2.32.5",
+    "sentence-transformers>=5.4.1",
 ]
 
 [project.scripts]
-matchforge_ai = "matchforge_ai.main:run"
-run_crew = "matchforge_ai.main:run"
-train = "matchforge_ai.main:train"
-replay = "matchforge_ai.main:replay"
-test = "matchforge_ai.main:test"
-run_with_trigger = "matchforge_ai.main:run_with_trigger"
+career_copilot_ai = "career_copilot_ai.main:run"
+chat = "career_copilot_ai.main:chat"
+run_crew = "career_copilot_ai.main:run"
+train = "career_copilot_ai.main:train"
+replay = "career_copilot_ai.main:replay"
+test = "career_copilot_ai.main:test"
+run_with_trigger = "career_copilot_ai.main:run_with_trigger"
 
 [build-system]
 requires = ["hatchling"]
