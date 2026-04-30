@@ -52,7 +52,6 @@ class CareerCopilotAi():
     def career_strategist(self) -> Agent:
         return Agent(
             config=self.agents_config['career_coach'], # type: ignore[index]
-            tools=[VectorDBQueryTool()],
             verbose=True,
             memory=False
         )
@@ -82,7 +81,7 @@ class CareerCopilotAi():
     def optimize_resume_task(self) -> Task:
         return Task(
             config=self.tasks_config['ats_scoring_task'], # type: ignore[index]
-            output_file='ats_jobs_report.md'
+            output_pydantic=JobReport
         )
 
     @task
