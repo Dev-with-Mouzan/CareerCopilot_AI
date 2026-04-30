@@ -2,6 +2,20 @@ from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 from crewai.agents.agent_builder.base_agent import BaseAgent
 from career_copilot_ai.tools.custom_tool import TopJobsScraperTool, VectorDBQueryTool
+from pydantic import BaseModel, Field
+from typing import List
+
+class ScoredJob(BaseModel):
+    job_title: str = Field(description="The title of the job.")
+    company: str = Field(description="The company offering the job.")
+    link: str = Field(description="URL link to the job posting.")
+    ats_score: int = Field(description="The ATS match score out of 100.")
+    missing_keywords: List[str] = Field(description="Keywords missing from the resume.")
+    match_reasoning: str = Field(description="Short explanation of why this job matches the resume.")
+
+class JobReport(BaseModel):
+    top_jobs: List[ScoredJob] = Field(description="List of top scored jobs.")
+
 # If you want to run a snippet of code before or after the crew starts,
 # you can use the @before_kickoff and @after_kickoff decorators
 # https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators
@@ -37,10 +51,10 @@ class CareerCopilotAi():
     @agent
     def career_strategist(self) -> Agent:
         return Agent(
-            config=self.agents_config['career_strategist'], # type: ignore[index]
+            config=self.agents_config['career_coach'], # type: ignore[index]
             tools=[VectorDBQueryTool()],
             verbose=True,
-            memory=True
+            memory=False
         )
 
     # To learn more about structured task outputs,
@@ -67,7 +81,8 @@ class CareerCopilotAi():
     @task
     def optimize_resume_task(self) -> Task:
         return Task(
-            config=self.tasks_config['optimize_resume_task'], # type: ignore[index]
+            config=self.tasks_config['ats_scoring_task'], # type: ignore[index]
+            output_file='ats_jobs_report.md'
         )
 
     @task
@@ -87,6 +102,6 @@ class CareerCopilotAi():
             tasks=self.tasks, # Automatically created by the @task decorator
             process=Process.sequential,
             verbose=True,
-            memory=True,
+            memory=False,
             # process=Process.hierarchical, # In case you wanna use that instead https://docs.crewai.com/how-to/Hierarchical/
         )

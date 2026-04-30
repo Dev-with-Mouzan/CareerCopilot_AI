@@ -5,8 +5,7 @@ python-multipart
 langchain
 langchain-community
 pypdf
-sentence-transformers
-# scikit-learn
+scikit-learn
 requests
 langchain-groq
 langchain-google-genai
@@ -14,3 +13,4 @@ python-dotenv
 beautifulsoup4
 faiss-cpu
 PyPDF2
+litellm
