@@ -1,17 +1,27 @@
 scrape_jobs_task:
   description: >
-    Visit the following websites to extract remote job opportunities:
-    {websites}
-    
-    For each website, use your TopJobsScraperTool to extract the most relevant 
-    job postings based on the user's resume:
-    {resume}
-    
-    Compile the top 8 to 10 best matching jobs overall.
+    Search for remote job opportunities using THREE sources:
+
+    1. **LinkedIn (priority)**: Call `linkedin_jobs_scraper_tool` with
+       resume_text = "{resume}" and location = "United States".
+       The tool auto-extracts keywords and queries LinkedIn's Jobs Guest API.
+
+    2. **Remotive**: Call `remotive_api_tool` with resume_text = "{resume}".
+       This uses Remotive's free JSON API — do NOT scrape remotive.com directly.
+
+    3. **Jobicy**: Call `jobicy_api_tool` with resume_text = "{resume}".
+       This uses Jobicy's free JSON API — do NOT scrape remote.co directly.
+
+    4. **Other websites**: For each site below, call `top_jobs_scraper_tool`
+       with the site URL and resume_text = "{resume}":
+       {websites}
+
+    Merge all results and compile the top 8 to 10 best matching jobs overall.
   expected_output: >
-    A markdown formatted list of the top 8-10 job opportunities across all websites.
-    Include the Job Title, Company, Link, and the raw text chunk for each job.
+    A markdown formatted list of the top 8-10 job opportunities across all sources.
+    Include the Job Title, Company, Link, and a brief description for each job.
   agent: job_scraper
+
 
 ats_scoring_task:
   description: >
