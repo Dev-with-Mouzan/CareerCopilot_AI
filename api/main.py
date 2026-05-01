@@ -39,7 +39,7 @@ if not os.environ.get("GOOGLE_API_KEY"):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://career-copilot-ai-five.vercel.app/"],          # Replace "*" with your Vercel URL in production
+    allow_origins=["https://career-copilot-ai-five.vercel.app"],          # Replace "*" with your Vercel URL in production
     allow_methods=["*"],
     allow_headers=["*"],
 )
