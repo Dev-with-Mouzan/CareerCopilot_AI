@@ -3,78 +3,496 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CareerCopilot-AI | Forge Your Future with AI</title>
-    <meta name="description" content="CareerCopilot-AI leverages CrewAI to orchestrate multi-agent workflows for the ultimate job matching and career coaching experience.">
+    <title>CareerCopilot AI - Your AI Career Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366f1',
+                        primaryDark: '#4f46e5',
+                        secondary: '#22d3ee',
+                        dark: '#0f0f23',
+                        card: '#1a1a2e',
+                        cardHover: '#252542'
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'float-delayed': 'float 6s ease-in-out 3s infinite',
+                        'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
+                        'shimmer': 'shimmer 3s linear infinite',
+                    }
+                }
+            }
+        }
+    </script>
 </head>
-<body>
-    <div class="background-container">
-        <img src="assets/hero-bg.png" alt="Futuristic Background" class="bg-image">
-        <div class="overlay"></div>
+<body class="bg-dark text-white min-h-screen relative overflow-x-hidden">
+    <!-- Animated Background -->
+    <div class="fixed inset-0 z-0 pointer-events-none">
+        <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-float"></div>
+        <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-secondary/10 rounded-full blur-3xl animate-float-delayed"></div>
+        <div class="absolute top-1/2 left-1/2 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl animate-float"></div>
+        <div id="particles-container" class="absolute inset-0"></div>
     </div>
 
-    <nav>
-        <div class="logo">CareerCopilot<span>AI</span></div>
-        <ul class="nav-links">
-            <li><a href="#features">Features</a></li>
-            <li><a href="#agents">Our Agents</a></li>
-            <li><a href="#contact">Contact</a></li>
-        </ul>
-        <button class="btn-primary">Launch App</button>
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <!-- Navigation -->
+    <nav class="border-b border-white/10 backdrop-blur-xl bg-dark/70 sticky top-0 z-40 glass-effect">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/25 animate-pulse-glow">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="text-xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent bg-[length:200%_auto] animated-gradient">CareerCopilot AI</span>
+                        <span class="text-xs text-gray-500 hidden sm:block">Multi-Agent Career Assistant</span>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-center gap-6">
+                    <a href="#upload" class="text-gray-300 hover:text-white transition-colors relative group">
+                        Upload
+                        <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-secondary group-hover:w-full transition-all"></span>
+                    </a>
+                    <a href="#generate" class="text-gray-300 hover:text-white transition-colors relative group">
+                        Generate
+                        <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-secondary group-hover:w-full transition-all"></span>
+                    </a>
+                    <a href="#jobs" class="text-gray-300 hover:text-white transition-colors relative group">
+                        Jobs
+                        <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-secondary group-hover:w-full transition-all"></span>
+                    </a>
+                    <a href="#chat" class="text-gray-300 hover:text-white transition-colors relative group">
+                        Chat
+                        <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-secondary group-hover:w-full transition-all"></span>
+                    </a>
+                </div>
+                <button onclick="clearSession()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors hover:bg-white/5 rounded-lg">
+                    Reset
+                </button>
+            </div>
+        </div>
     </nav>
 
-    <main>
-        <section class="hero">
-            <div class="hero-content">
-                <h1 class="fade-in">Forge Your Path to <span class="highlight">Success</span></h1>
-                <p class="fade-in delay-1">Powered by CrewAI, CareerCopilot-AI uses autonomous agents to find, analyze, and secure your next big opportunity.</p>
-                <div class="hero-btns fade-in delay-2">
-                    <button id="start-matching" class="btn-primary large">Start Matching</button>
-                    <button class="btn-secondary large">Learn More</button>
+    <!-- Hero Section -->
+    <section class="py-20 px-4 relative">
+        <div class="max-w-5xl mx-auto text-center">
+            <!-- Badge -->
+            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6 backdrop-blur-sm hover:bg-primary/15 transition-colors cursor-default">
+                <span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+                <span class="text-sm text-secondary font-medium">AI-Powered Career Assistant</span>
+            </div>
+
+            <!-- Main Heading -->
+            <h1 class="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+                Land Your Dream Job with
+                <br/>
+                <span class="bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent bg-[length:200%_auto] animated-gradient">AI Intelligence</span>
+            </h1>
+
+            <!-- Subtitle -->
+            <p class="text-lg md:text-xl text-gray-400 mb-10 max-w-3xl mx-auto leading-relaxed">
+                Multi-agent AI system powered by
+                <span class="text-primary font-semibold">CrewAI</span> that analyzes your resume,
+                discovers perfect job matches, and provides personalized career guidance.
+            </p>
+
+            <!-- CTA Buttons -->
+            <div class="flex flex-wrap justify-center gap-4 mb-12">
+                <a href="#upload" class="group px-8 py-4 bg-gradient-to-r from-primary to-primaryDark rounded-xl font-semibold hover:shadow-2xl hover:shadow-primary/30 transition-all transform hover:-translate-y-1 hover:scale-105 relative overflow-hidden">
+                    <span class="relative z-10 flex items-center gap-2">
+                        <svg class="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                        Get Started
+                    </span>
+                    <div class="absolute inset-0 bg-gradient-to-r from-secondary to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                </a>
+                <a href="#how-it-works" class="group px-8 py-4 bg-card border border-white/10 rounded-xl font-semibold hover:bg-cardHover hover:border-primary/30 transition-all transform hover:-translate-y-1">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-gray-400 group-hover:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        See How It Works
+                    </span>
+                </a>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
+                <div class="p-4 rounded-xl bg-card/50 border border-white/5 backdrop-blur-sm">
+                    <div class="text-3xl font-bold text-primary">4+</div>
+                    <div class="text-xs text-gray-500 mt-1">AI Agents</div>
                 </div>
-                
-                <!-- File Upload Section -->
-                <div class="upload-container fade-in delay-3">
-                    <input type="file" id="resume-upload" accept=".pdf" hidden>
-                    <label for="resume-upload" class="upload-box">
-                        <span class="icon">📄</span>
-                        <p>Click to upload or drag & drop your Resume (PDF)</p>
-                    </label>
-                    <div id="file-status" class="file-status"></div>
+                <div class="p-4 rounded-xl bg-card/50 border border-white/5 backdrop-blur-sm">
+                    <div class="text-3xl font-bold text-secondary">100+</div>
+                    <div class="text-xs text-gray-500 mt-1">Jobs Analyzed</div>
+                </div>
+                <div class="p-4 rounded-xl bg-card/50 border border-white/5 backdrop-blur-sm">
+                    <div class="text-3xl font-bold text-purple-400">ATS</div>
+                    <div class="text-xs text-gray-500 mt-1">Smart Scoring</div>
+                </div>
+                <div class="p-4 rounded-xl bg-card/50 border border-white/5 backdrop-blur-sm">
+                    <div class="text-3xl font-bold text-green-400">24/7</div>
+                    <div class="text-xs text-gray-500 mt-1">Career Coach</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section id="how-it-works" class="py-20 px-4 border-t border-white/5">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl md:text-4xl font-bold mb-4">
+                    <span class="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">How It Works</span>
+                </h2>
+                <p class="text-gray-400">Four simple steps to your dream job</p>
+            </div>
+
+            <div class="grid md:grid-cols-4 gap-6">
+                <!-- Step 1 -->
+                <div class="group relative">
+                    <div class="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="relative p-6 rounded-2xl bg-card border border-white/5 hover:border-primary/50 transition-all group h-full">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <span class="text-3xl">📄</span>
+                            </div>
+                            <span class="text-5xl font-bold text-white/5">01</span>
+                        </div>
+                        <h3 class="text-lg font-semibold mb-2 text-white group-hover:text-primary transition-colors">Upload Resume</h3>
+                        <p class="text-gray-400 text-sm leading-relaxed">Upload your PDF resume for comprehensive AI analysis</p>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="group relative">
+                    <div class="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="relative p-6 rounded-2xl bg-card border border-white/5 hover:border-primary/50 transition-all group h-full">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-secondary/20 to-secondary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <span class="text-3xl">🤖</span>
+                            </div>
+                            <span class="text-5xl font-bold text-white/5">02</span>
+                        </div>
+                        <h3 class="text-lg font-semibold mb-2 text-white group-hover:text-secondary transition-colors">AI Analysis</h3>
+                        <p class="text-gray-400 text-sm leading-relaxed">Multi-agent CrewAI system evaluates your profile and skills</p>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="group relative">
+                    <div class="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="relative p-6 rounded-2xl bg-card border border-white/5 hover:border-primary/50 transition-all group h-full">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <span class="text-3xl">💼</span>
+                            </div>
+                            <span class="text-5xl font-bold text-white/5">03</span>
+                        </div>
+                        <h3 class="text-lg font-semibold mb-2 text-white group-hover:text-purple-400 transition-colors">Job Matches</h3>
+                        <p class="text-gray-400 text-sm leading-relaxed">Discover curated job opportunities matched to your profile</p>
+                    </div>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="group relative">
+                    <div class="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="relative p-6 rounded-2xl bg-card border border-white/5 hover:border-primary/50 transition-all group h-full">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-green-500/20 to-green-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <span class="text-3xl">📈</span>
+                            </div>
+                            <span class="text-5xl font-bold text-white/5">04</span>
+                        </div>
+                        <h3 class="text-lg font-semibold mb-2 text-white group-hover:text-green-400 transition-colors">Career Plan</h3>
+                        <p class="text-gray-400 text-sm leading-relaxed">Get personalized action steps and career guidance</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 py-16 space-y-16">
+
+        <!-- Upload Section -->
+        <section id="upload" class="scroll-mt-20">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                    <span class="text-lg">📄</span>
+                </div>
+                <h2 class="text-2xl font-bold">Upload Your Resume</h2>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-8">
+                <div class="p-8 rounded-2xl bg-card border border-white/5">
+                    <div
+                        id="drop-zone"
+                        class="border-2 border-dashed border-white/10 rounded-xl p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                    >
+                        <input type="file" id="file-input" accept=".pdf" class="hidden">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/10 flex items-center justify-center">
+                            <svg class="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                            </svg>
+                        </div>
+                        <p class="text-lg font-medium mb-1">Drop your resume here</p>
+                        <p class="text-gray-400 text-sm mb-4">or click to browse</p>
+                        <p class="text-xs text-gray-500">PDF format, max 10MB</p>
+                    </div>
+
+                    <div id="file-info" class="hidden mt-4 p-4 rounded-xl bg-primary/10 border border-primary/20">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            <span id="file-name" class="text-sm font-medium"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-8 rounded-2xl bg-card border border-white/5">
+                    <h3 class="text-lg font-semibold mb-4">Resume Preview</h3>
+                    <div id="resume-preview" class="h-64 overflow-y-auto text-sm text-gray-400 bg-dark/50 rounded-xl p-4 border border-white/5">
+                        <p class="text-center">Upload a resume to see preview...</p>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <section id="features" class="features">
-            <div class="section-header">
-                <h2>Why Choose CareerCopilot-AI?</h2>
-                <p>Advanced multi-agent systems working 24/7 for you.</p>
+        <!-- Generate Plan Section -->
+        <section id="generate" class="scroll-mt-20">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/20">
+                    <span class="text-lg">✨</span>
+                </div>
+                <h2 class="text-2xl font-bold">Generate Career Plan</h2>
             </div>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <div class="icon">🔍</div>
-                    <h3>Precision Scouting</h3>
-                    <p>Our scouts scour thousands of listings to find your perfect fit.</p>
+
+            <div class="p-8 rounded-2xl bg-card border border-white/5 relative overflow-hidden">
+                <!-- Decorative glow -->
+                <div class="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 relative z-10">
+                    <div>
+                        <h3 class="text-lg font-semibold">AI-Powered Analysis</h3>
+                        <p class="text-gray-400 text-sm">Our multi-agent system will analyze your resume and generate personalized recommendations</p>
+                    </div>
+                    <button
+                        id="generate-btn"
+                        onclick="generateCareerPlan()"
+                        class="group px-6 py-3 bg-gradient-to-r from-primary to-primaryDark rounded-xl font-semibold hover:shadow-2xl hover:shadow-primary/30 transition-all transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none relative overflow-hidden"
+                    >
+                        <span class="flex items-center gap-2 relative z-10">
+                            <svg class="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>
+                            Generate Plan
+                        </span>
+                        <div class="absolute inset-0 bg-gradient-to-r from-secondary to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    </button>
                 </div>
-                <div class="feature-card">
-                    <div class="icon">📊</div>
-                    <h3>AI Analysis</h3>
-                    <p>In-depth resume-to-job matching with detailed compatibility scores.</p>
+
+                <!-- AI Agents Status -->
+                <div id="agents-status" class="mb-6 hidden">
+                    <div class="flex items-center gap-2 mb-3">
+                        <svg class="w-5 h-5 text-primary animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        <span class="text-sm font-medium text-gray-300">AI Agents Working</span>
+                    </div>
+                    <div class="grid grid-cols-4 gap-3">
+                        <div class="agent-card p-3 rounded-xl bg-dark/50 border border-white/5 text-center">
+                            <div class="text-xl mb-1">🔍</div>
+                            <div class="text-xs text-gray-400">Job Hunter</div>
+                            <div class="agent-status mt-1 text-xs text-secondary">Active</div>
+                        </div>
+                        <div class="agent-card p-3 rounded-xl bg-dark/50 border border-white/5 text-center">
+                            <div class="text-xl mb-1">📊</div>
+                            <div class="text-xs text-gray-400">ATS Analyst</div>
+                            <div class="agent-status mt-1 text-xs text-gray-500">Waiting</div>
+                        </div>
+                        <div class="agent-card p-3 rounded-xl bg-dark/50 border border-white/5 text-center">
+                            <div class="text-xl mb-1">🎯</div>
+                            <div class="text-xs text-gray-400">Skill Analyzer</div>
+                            <div class="agent-status mt-1 text-xs text-gray-500">Waiting</div>
+                        </div>
+                        <div class="agent-card p-3 rounded-xl bg-dark/50 border border-white/5 text-center">
+                            <div class="text-xl mb-1">💡</div>
+                            <div class="text-xs text-gray-400">Career Coach</div>
+                            <div class="agent-status mt-1 text-xs text-gray-500">Waiting</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="feature-card">
-                    <div class="icon">🤖</div>
-                    <h3>CrewAI Orchestration</h3>
-                    <p>Sophisticated agent handoffs for a seamless career journey.</p>
+
+                <!-- Loading State -->
+                <div id="loading-state" class="hidden">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="relative">
+                            <div class="w-12 h-12 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <div class="w-6 h-6 bg-primary rounded-full animate-pulse"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="text-lg font-medium block">AI agents are working...</span>
+                            <span class="text-sm text-gray-400" id="loading-text">Analyzing your resume...</span>
+                        </div>
+                    </div>
+                    <div class="bg-dark/50 rounded-xl p-4 space-y-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-2 rounded-full bg-secondary animate-pulse"></div>
+                            <span class="text-sm text-gray-400" id="loading-status-text">Initializing agents...</span>
+                        </div>
+                        <div class="relative h-3 bg-white/5 rounded-full overflow-hidden">
+                            <div class="absolute inset-0 bg-gradient-to-r from-primary/20 via-secondary/20 to-primary/20 animate-shimmer"></div>
+                            <div id="loading-bar" class="h-full bg-gradient-to-r from-primary via-secondary to-primary rounded-full transition-all duration-500 relative" style="width: 0%">
+                                <div class="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full shadow-lg shadow-white/50"></div>
+                            </div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-500">
+                            <span>0%</span>
+                            <span id="loading-percent">0%</span>
+                            <span>100%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <div id="results-container" class="hidden space-y-6">
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="group p-6 rounded-xl bg-dark/50 border border-white/5 hover:border-primary/30 transition-all">
+                            <h4 class="font-semibold mb-3 flex items-center gap-2">
+                                <span class="text-xl">📋</span> Career Action Plan
+                            </h4>
+                            <div id="career-plan-output" class="text-sm text-gray-300 space-y-2 max-h-64 overflow-y-auto markdown-content"></div>
+                        </div>
+                        <div class="group p-6 rounded-xl bg-dark/50 border border-white/5 hover:border-secondary/30 transition-all">
+                            <h4 class="font-semibold mb-3 flex items-center gap-2">
+                                <span class="text-xl">📝</span> Resume Optimization
+                            </h4>
+                            <div id="resume-optimization-output" class="text-sm text-gray-300 space-y-2 max-h-64 overflow-y-auto markdown-content"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
+
+        <!-- Jobs Section -->
+        <section id="jobs" class="scroll-mt-20">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/20">
+                        <span class="text-lg">💼</span>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-bold">Job Matches</h2>
+                        <p class="text-xs text-gray-500">AI-curated opportunities just for you</p>
+                    </div>
+                </div>
+                <button
+                    id="fetch-jobs-btn"
+                    onclick="fetchJobs()"
+                    class="group px-5 py-2.5 bg-gradient-to-r from-primary to-primaryDark rounded-xl text-sm font-semibold hover:shadow-xl hover:shadow-primary/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+                >
+                    <span class="flex items-center gap-2 relative z-10">
+                        <svg class="w-4 h-4 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Fetch Jobs
+                    </span>
+                </button>
+            </div>
+
+            <div id="jobs-container" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Job cards will be inserted here -->
+            </div>
+
+            <div id="jobs-empty" class="group p-8 rounded-2xl bg-card border border-white/5 text-center hover:border-primary/30 transition-all">
+                <div class="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center group-hover:scale-110 transition-transform empty-state-icon">
+                    <span class="text-4xl">💼</span>
+                </div>
+                <h3 class="text-lg font-medium mb-2">No jobs fetched yet</h3>
+                <p class="text-gray-400 text-sm">Click "Fetch Jobs" to see AI-curated opportunities</p>
+            </div>
+        </section>
+
+        <!-- Chat Section -->
+        <section id="chat" class="scroll-mt-20">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/20">
+                    <span class="text-lg">💬</span>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold">Chat with Career Coach</h2>
+                    <p class="text-xs text-gray-500">Powered by Gemini AI with memory</p>
+                </div>
+            </div>
+
+            <div class="p-6 rounded-2xl bg-card border border-white/5 relative overflow-hidden">
+                <!-- Decorative elements -->
+                <div class="absolute top-0 right-0 w-32 h-32 bg-secondary/5 rounded-full blur-2xl pointer-events-none"></div>
+
+                <div id="chat-messages" class="h-[500px] overflow-y-auto space-y-4 mb-4 p-4 bg-dark/50 rounded-xl border border-white/5 relative z-10">
+                    <div class="flex items-start gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary/25">
+                            <span class="text-lg">🤖</span>
+                        </div>
+                        <div class="flex-1">
+                            <div class="bg-gradient-to-br from-white/5 to-white/10 rounded-2xl rounded-tl-none p-4 max-w-[85%] backdrop-blur-sm border border-white/5">
+                                <p class="text-sm leading-relaxed">Hi! I'm your AI career coach. I've analyzed your resume and can help you with:</p>
+                                <ul class="text-sm mt-2 space-y-1 text-gray-300">
+                                    <li class="flex items-center gap-2"><span class="text-primary">✓</span> Job search strategies</li>
+                                    <li class="flex items-center gap-2"><span class="text-primary">✓</span> Resume optimization tips</li>
+                                    <li class="flex items-center gap-2"><span class="text-primary">✓</span> Interview preparation</li>
+                                    <li class="flex items-center gap-2"><span class="text-primary">✓</span> Career guidance</li>
+                                </ul>
+                                <p class="text-sm mt-3 text-gray-400">What would you like to know?</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <form onsubmit="sendMessage(event)" class="flex gap-3 relative z-10">
+                    <input
+                        type="text"
+                        id="chat-input"
+                        placeholder="Ask about your career, resume, or job search..."
+                        class="flex-1 px-5 py-4 bg-dark border border-white/10 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                    >
+                    <button
+                        type="submit"
+                        class="group px-6 py-4 bg-gradient-to-r from-primary to-primaryDark rounded-xl font-semibold hover:shadow-xl hover:shadow-primary/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5"
+                    >
+                        <svg class="w-5 h-5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                        </svg>
+                    </button>
+                </form>
+            </div>
+        </section>
+
     </main>
 
-    <footer>
-        <p>&copy; 2026 CareerCopilot-AI. All rights reserved.</p>
+    <!-- Footer -->
+    <footer class="border-t border-white/5 py-8 px-4 mt-16">
+        <div class="max-w-7xl mx-auto text-center text-gray-500 text-sm">
+            <p>Built with ❤️ using Multi-Agent AI</p>
+            <p class="mt-2">CareerCopilot AI &copy; 2026</p>
+        </div>
     </footer>
 
     <script src="script.js"></script>

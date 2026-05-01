@@ -43,7 +43,7 @@ class CareerCopilotAi():
     tasks: list[Task]
 
     @agent
-    def job_scraper(self) -> Agent:
+    def job_hunter(self) -> Agent:
         return Agent(
             config=self.agents_config['job_scraper'], # type: ignore[index]
             llm=_GROQ_LLM,                           # Groq: fast tool calls
@@ -52,7 +52,7 @@ class CareerCopilotAi():
         )
 
     @agent
-    def ats_scorer(self) -> Agent:
+    def ats_analyst(self) -> Agent:
         return Agent(
             config=self.agents_config['ats_scorer'], # type: ignore[index]
             llm=_GEMINI_LLM,                         # Gemini: deep analysis
@@ -60,7 +60,7 @@ class CareerCopilotAi():
         )
 
     @agent
-    def career_coach(self) -> Agent:
+    def career_strategist(self) -> Agent:
         return Agent(
             config=self.agents_config['career_coach'], # type: ignore[index]
             llm=_GEMINI_LLM,                           # Gemini: natural chat
@@ -72,20 +72,20 @@ class CareerCopilotAi():
     @task
     def scrape_jobs_task(self) -> Task:
         return Task(
-            config=self.tasks_config['scrape_jobs_task'], # type: ignore[index]
+            config=self.tasks_config['identify_skill_gaps_task'], # type: ignore[index]
         )
 
     @task
-    def ats_scoring_task(self) -> Task:
+    def optimize_resume_task(self) -> Task:
         return Task(
             config=self.tasks_config['ats_scoring_task'], # type: ignore[index]
             output_pydantic=JobReport
         )
 
     @task
-    def career_coaching_task(self) -> Task:
+    def provide_strategic_guidance_task(self) -> Task:
         return Task(
-            config=self.tasks_config['career_coaching_task'], # type: ignore[index]
+            config=self.tasks_config['provide_strategic_guidance_task'], # type: ignore[index]
         )
 
     @crew
