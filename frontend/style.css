@@ -465,50 +465,50 @@ button:active::after {
 /* ============================================
    Markdown Content Styling
    ============================================ */
-.markdown-content {
+.markdown-body {
     line-height: 1.8;
 }
 
-.markdown-content h1,
-.markdown-content h2,
-.markdown-content h3 {
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3 {
     color: var(--primary);
     margin-top: 1rem;
     margin-bottom: 0.5rem;
     font-weight: 600;
 }
 
-.markdown-content h1 {
+.markdown-body h1 {
     font-size: 1.5rem;
 }
 
-.markdown-content h2 {
+.markdown-body h2 {
     font-size: 1.25rem;
 }
 
-.markdown-content h3 {
+.markdown-body h3 {
     font-size: 1.1rem;
 }
 
-.markdown-content p {
+.markdown-body p {
     margin-bottom: 0.75rem;
 }
 
-.markdown-content ul,
-.markdown-content ol {
+.markdown-body ul,
+.markdown-body ol {
     margin-left: 1.5rem;
     margin-bottom: 0.75rem;
 }
 
-.markdown-content li {
+.markdown-body li {
     margin-bottom: 0.25rem;
 }
 
-.markdown-content strong {
+.markdown-body strong {
     color: var(--secondary);
 }
 
-.markdown-content em {
+.markdown-body em {
     color: #a5b4fc;
 }
 

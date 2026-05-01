@@ -597,9 +597,11 @@ function addChatMessage(content, role, isError = false) {
         <div class="w-10 h-10 rounded-xl ${isUser ? 'bg-gray-600' : 'bg-gradient-to-br from-primary to-secondary'} flex items-center justify-center flex-shrink-0 shadow-lg ${isUser ? '' : 'shadow-primary/25'}">
             <span class="text-lg">${isUser ? '👤' : '🤖'}</span>
         </div>
-        <div class="flex-1">
-            <div class="${isUser ? 'bg-gradient-to-br from-primary/20 to-primary/10 rounded-tr-none' : isError ? 'bg-red-500/10 border-red-500/20' : 'bg-gradient-to-br from-white/5 to-white/10 border-white/5'} rounded-2xl ${isUser ? 'rounded-tl-none' : 'rounded-tl-none'} p-4 max-w-[85%] backdrop-blur-sm border ${isUser ? '' : 'border-white/5'}">
-                <p class="text-sm leading-relaxed ${isError ? 'text-red-300' : ''}">${escapeHtml(content)}</p>
+        <div class="flex-1 overflow-hidden">
+            <div class="${isUser ? 'bg-gradient-to-br from-primary/20 to-primary/10 rounded-tr-none' : isError ? 'bg-red-500/10 border-red-500/20' : 'bg-gradient-to-br from-white/5 to-white/10 border-white/5'} rounded-2xl ${isUser ? 'rounded-tl-none' : 'rounded-tl-none'} p-4 max-w-[95%] backdrop-blur-sm border ${isUser ? '' : 'border-white/5'}">
+                <div class="markdown-body text-sm leading-relaxed ${isError ? 'text-red-300' : ''}">
+                    ${isUser ? `<p>${escapeHtml(content)}</p>` : marked.parse(content)}
+                </div>
             </div>
         </div>
     `;
