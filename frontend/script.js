@@ -475,10 +475,19 @@ function parseJobsFromMarkdown(markdown) {
                 location: 'Remote'
             };
         } else if (currentJob) {
-            if (trimmed.toLowerCase().includes('link:') || trimmed.toLowerCase().includes('url:')) {
-                currentJob.link = trimmed.split(':')[1]?.trim() || '#';
-            } else if (trimmed.toLowerCase().includes('reasoning:')) {
-                currentJob.reasoning = trimmed.split(':')[1]?.trim();
+            const lowerLine = trimmed.toLowerCase();
+            if (lowerLine.includes('link:') || lowerLine.includes('url:')) {
+                // Use substring to avoid breaking on the second colon in https://
+                const linkPart = trimmed.substring(trimmed.indexOf(':') + 1).trim();
+                currentJob.link = linkPart || '#';
+            } else if (trimmed.includes('http://') || trimmed.includes('https://')) {
+                // Raw link detection
+                const urlMatch = trimmed.match(/https?:\/\/[^\s)]+/);
+                if (urlMatch && currentJob.link === '#') {
+                    currentJob.link = urlMatch[0];
+                }
+            } else if (lowerLine.includes('reasoning:')) {
+                currentJob.reasoning = trimmed.substring(trimmed.indexOf(':') + 1).trim();
             }
         }
     }
