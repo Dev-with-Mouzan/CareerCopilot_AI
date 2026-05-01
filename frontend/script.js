@@ -511,9 +511,9 @@ function displayJobs(jobs, container) {
 
     container.innerHTML = jobs.map((job, index) => {
         const matchScore = job.ats_score || (95 - index * 5);
-        const matchColor = matchScore >= 85 ? 'text-green-400 bg-green-400/10' :
-            matchScore >= 70 ? 'text-yellow-400 bg-yellow-400/10' :
-                'text-orange-400 bg-orange-400/10';
+        const matchColor = matchScore >= 85 ? 'bg-green-500/20' :
+            matchScore >= 70 ? 'bg-yellow-500/20' :
+                'bg-orange-500/20';
 
         return `
             <div class="job-card group p-5 rounded-xl bg-card border border-white/5 hover:border-primary/50 cursor-pointer relative overflow-hidden" title="${escapeHtml(job.reasoning || '')}">
@@ -525,7 +525,7 @@ function displayJobs(jobs, container) {
                             <h4 class="font-semibold text-white group-hover:text-primary transition-colors">${escapeHtml(job.title) || 'Job Position'}</h4>
                             <p class="text-sm text-gray-400">${escapeHtml(job.company) || 'Company'}</p>
                         </div>
-                        <span class="px-2.5 py-1 text-xs font-semibold rounded-full ${matchColor} match-badge">
+                        <span class="px-2.5 py-1 text-xs font-bold rounded-full text-white ${matchColor} match-badge shadow-sm">
                             ${matchScore}% Match
                         </span>
                     </div>
