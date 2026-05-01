@@ -314,7 +314,7 @@ async function pollStatus(jobId) {
                 document.getElementById('generate-btn').disabled = false;
                 showToast('Career plan generated successfully!', 'success');
 
-                // Display results with animation
+                // Display results with Markdown rendering
                 displayResults(data.result);
 
                 // Auto-fetch jobs
@@ -341,20 +341,19 @@ function displayResults(result) {
     const careerPlanOutput = document.getElementById('career-plan-output');
     const resumeOptOutput = document.getElementById('resume-optimization-output');
 
-    if (result && result.raw) {
-        // Parse the markdown output
-        const markdown = parseMarkdown(result.raw);
-        const sections = markdown.split(/<br><br>+|<br\/><br\/>+/);
+    const rawMarkdown = result && result.raw ? result.raw : (typeof result === 'string' ? result : '');
 
-        // Career plan - first half
-        careerPlanOutput.innerHTML = sections.slice(0, 4).map((section, i) =>
-            `<div class="pb-3 ${i < 3 ? 'border-b border-white/5' : ''}">${section}</div>`
-        ).join('');
-
-        // Resume optimization - second half
-        resumeOptOutput.innerHTML = sections.slice(4, 8).map((section, i) =>
-            `<div class="pb-3 ${i < 3 ? 'border-b border-white/5' : ''}">${section}</div>`
-        ).join('');
+    if (rawMarkdown) {
+        if (typeof marked !== 'undefined') {
+            careerPlanOutput.innerHTML = `<div class="markdown-body">${marked.parse(rawMarkdown)}</div>`;
+            // Hide the second redundant column to keep it clean
+            if (resumeOptOutput && resumeOptOutput.parentElement) {
+                resumeOptOutput.parentElement.classList.add('hidden');
+            }
+            careerPlanOutput.parentElement.classList.replace('lg:grid-cols-2', 'lg:grid-cols-1');
+        } else {
+            careerPlanOutput.textContent = rawMarkdown;
+        }
     } else {
         careerPlanOutput.innerHTML = `
             <div class="flex items-center gap-3 text-gray-500">
@@ -362,14 +361,6 @@ function displayResults(result) {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
                 Results available in raw format
-            </div>
-        `;
-        resumeOptOutput.innerHTML = `
-            <div class="flex items-center gap-3 text-gray-500">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                Check the Jobs section for matches
             </div>
         `;
     }
