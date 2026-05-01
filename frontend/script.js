@@ -394,8 +394,19 @@ async function fetchJobs() {
             emptyState.classList.add('hidden');
             container.classList.remove('hidden');
 
-            if (data.jobs || data.raw_markdown) {
-                const jobs = parseJobsFromMarkdown(data.raw_markdown || '');
+            if (data.jobs && data.jobs.top_jobs) {
+                const jobs = data.jobs.top_jobs.map(j => ({
+                    title: j.job_title,
+                    company: j.company,
+                    link: j.link,
+                    ats_score: j.ats_score,
+                    reasoning: j.match_reasoning,
+                    location: 'Remote'
+                }));
+                displayJobs(jobs, container);
+                showToast(`Found ${jobs.length} job matches!`, 'success');
+            } else if (data.raw_markdown) {
+                const jobs = parseJobsFromMarkdown(data.raw_markdown);
                 displayJobs(jobs, container);
                 showToast(`Found ${jobs.length} job matches!`, 'success');
             } else {
@@ -482,13 +493,13 @@ function displayJobs(jobs, container) {
     }
 
     container.innerHTML = jobs.map((job, index) => {
-        const matchScore = 95 - index * 5;
+        const matchScore = job.ats_score || (95 - index * 5);
         const matchColor = matchScore >= 85 ? 'text-green-400 bg-green-400/10' :
             matchScore >= 70 ? 'text-yellow-400 bg-yellow-400/10' :
                 'text-orange-400 bg-orange-400/10';
 
         return `
-            <div class="job-card group p-5 rounded-xl bg-card border border-white/5 hover:border-primary/50 cursor-pointer relative overflow-hidden">
+            <div class="job-card group p-5 rounded-xl bg-card border border-white/5 hover:border-primary/50 cursor-pointer relative overflow-hidden" title="${escapeHtml(job.reasoning || '')}">
                 <div class="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-primary/10 to-transparent rounded-bl-full pointer-events-none"></div>
 
                 <div class="relative z-10">
