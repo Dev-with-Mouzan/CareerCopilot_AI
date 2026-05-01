@@ -24,7 +24,13 @@ def run():
 
     inputs = {
         'resume': resume_text,
-        'websites': 'https://www.workingnomads.com/jobs\nhttps://remote.co/\nhttps://remotive.com/\nhttps://www.linkedin.com/jobs/remote-jobs/?f_W=2%2C4&originalSubdomain=pk\nhttps://www.flexjobs.com/remote-jobs#remote-jobs-list',
+        # LinkedIn  → LinkedInJobsScraperTool (Guest API, keywords from resume)
+        # Remotive  → RemotiveAPITool          (free JSON API)
+        # Jobicy    → JobicyAPITool             (free JSON API, replaces remote.co)
+        'websites': (
+            'https://www.workingnomads.com/jobs\n'
+            'https://www.flexjobs.com/remote-jobs#remote-jobs-list'
+        ),
         'user_query': 'What are the best job matches for me based on the provided list and my resume?'
     }
 

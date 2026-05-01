@@ -53,30 +53,30 @@ analyze_job_matches_task:
 
 identify_skill_gaps_task:
   description: >
-    Aggregate all missing skills from the ATS analysis and identify the
-    most critical skill gaps. Prioritize skills based on:
+    Search for remote job opportunities using THREE sources:
 
-    1. Frequency - how often the skill appears across target jobs
-    2. Importance - marked as "required" vs "preferred" in job postings
-    3. Market demand - emerging vs. established technologies
+    1. **LinkedIn (priority)**: Call `linkedin_jobs_scraper_tool` with
+       resume_text = "{resume}" and location = "United States".
+       The tool auto-extracts keywords and queries LinkedIn's Jobs Guest API.
 
-    Provide specific, actionable learning recommendations for each gap.
+    2. **Remotive**: Call `remotive_api_tool` with resume_text = "{resume}".
+       This uses Remotive's free JSON API — do NOT scrape remotive.com directly.
+
+    3. **Jobicy**: Call `jobicy_api_tool` with resume_text = "{resume}".
+       This uses Jobicy's free JSON API — do NOT scrape remote.co directly.
+
+    4. **Other websites**: For each site below, call `top_jobs_scraper_tool`
+       with the site URL and resume_text = "{resume}":
+       {websites}
+
+    Merge all results and compile the top 8 to 10 best matching jobs overall.
   expected_output: >
-    A prioritized skill gap report containing:
-    - critical_gaps: Top 5 skills appearing in 50%+ of target jobs
-    - secondary_gaps: Skills appearing in 20-50% of jobs
-    - learning_recommendations: For each critical gap, provide:
-      - skill_name: The specific skill
-      - priority_level: "High", "Medium", or "Low"
-      - learning_resources: 2-3 specific resources (courses, docs, projects)
-      - estimated_time: Realistic learning timeline
-      - project_idea: Hands-on project to demonstrate the skill
-  agent: ats_analyst
-  context:
-    - analyze_job_matches_task
-  output_file: output/skill_gap_analysis.json
+    A markdown formatted list of the top 8-10 job opportunities across all sources.
+    Include the Job Title, Company, Link, and a brief description for each job.
+  agent: job_scraper
 
-optimize_resume_task:
+
+ats_scoring_task:
   description: >
     Using the ATS analysis and skill gap findings, provide comprehensive
     resume optimization recommendations. Focus on:

@@ -1,18 +1,20 @@
+# Secrets
 .env
+
+# Python
 __pycache__/
-.DS_Store
-.vscode/
-.venv/
-venv/
-.idea/
 *.pyc
 *.pyo
 *.pyd
-*.log
-*.sqlite3
-*.db
-*.env
-*.env.*
-*.egg-info/
-dist/
-build/
+.Python
+
+# Virtual environment
+.venv/
+venv/
+
+# Data / DB (TF-IDF job chunks — generated at runtime)
+data/
+
+# OS
+.DS_Store
+Thumbs.db
