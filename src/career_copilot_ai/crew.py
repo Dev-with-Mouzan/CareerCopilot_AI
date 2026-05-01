@@ -8,9 +8,9 @@ import os
 
 # ---------------------------------------------------------------------------
 # LLM Configuration
-#   • job_scraper  → Groq  (fast, good at tool-calling & web scraping tasks)
-#   • ats_scorer   → Gemini (strong analytical reasoning for scoring)
-#   • career_coach → Gemini (natural, conversational guidance)
+#   • job_hunter         → Groq  (fast, good at tool-calling & web scraping tasks)
+#   • ats_analyst        → Gemini (strong analytical reasoning for scoring)
+#   • career_strategist  → Gemini (strategic planning and guidance)
 # ---------------------------------------------------------------------------
 _GROQ_LLM = LLM(
     model="groq/llama-3.3-70b-versatile",
@@ -45,7 +45,7 @@ class CareerCopilotAi():
     @agent
     def job_hunter(self) -> Agent:
         return Agent(
-            config=self.agents_config['job_scraper'], # type: ignore[index]
+            config=self.agents_config['job_hunter'], # type: ignore[index]
             llm=_GROQ_LLM,                           # Groq: fast tool calls
             tools=[TopJobsScraperTool(), LinkedInJobsScraperTool(), RemotiveAPITool(), JobicyAPITool()],
             verbose=True
@@ -54,7 +54,7 @@ class CareerCopilotAi():
     @agent
     def ats_analyst(self) -> Agent:
         return Agent(
-            config=self.agents_config['ats_scorer'], # type: ignore[index]
+            config=self.agents_config['ats_analyst'], # type: ignore[index]
             llm=_GEMINI_LLM,                         # Gemini: deep analysis
             verbose=True
         )
@@ -62,15 +62,15 @@ class CareerCopilotAi():
     @agent
     def career_strategist(self) -> Agent:
         return Agent(
-            config=self.agents_config['career_coach'], # type: ignore[index]
-            llm=_GEMINI_LLM,                           # Gemini: natural chat
+            config=self.agents_config['career_strategist'], # type: ignore[index]
+            llm=_GEMINI_LLM,                           # Gemini: strategic planning
             tools=[VectorDBQueryTool()],               # Can query saved job chunks
             verbose=True,
             memory=False
         )
 
     @task
-    def scrape_jobs_task(self) -> Task:
+    def identify_skill_gaps_task(self) -> Task:
         return Task(
             config=self.tasks_config['identify_skill_gaps_task'], # type: ignore[index]
         )
@@ -79,7 +79,6 @@ class CareerCopilotAi():
     def optimize_resume_task(self) -> Task:
         return Task(
             config=self.tasks_config['ats_scoring_task'], # type: ignore[index]
-            output_pydantic=JobReport
         )
 
     @task

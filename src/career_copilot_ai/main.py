@@ -41,18 +41,18 @@ def run():
 
 def chat():
     """
-    Run an interactive chat session with the Career Coach agent.
+    Run an interactive chat session with the Career Strategist agent.
     """
     resume_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'resume.pdf')
     resume_text = extract_text_from_pdf(resume_path)
     
     print("\n" + "="*50)
-    print("Welcome to CareerCopilot-AI Coach Chat!")
+    print("Welcome to CareerCopilot-AI Strategist Chat!")
     print("Type 'exit' or 'quit' to end the session.")
     print("="*50 + "\n")
     
     crew_instance = CareerCopilotAi()
-    coach_agent = crew_instance.career_coach()
+    strategist_agent = crew_instance.career_strategist()
     
     while True:
         try:
@@ -61,10 +61,10 @@ def chat():
                 print("Goodbye!")
                 break
                 
-            print("\nCareerCoach is thinking...")
+            print("\nCareerStrategist is thinking...")
             prompt = f"The user asks: '{user_query}'\nUse the Vector DB to find relevant info from previously scraped jobs if applicable. The user's resume text is: {resume_text}"
-            result = coach_agent.kickoff(prompt)
-            print(f"\nCareerCoach: {result.raw}")
+            result = strategist_agent.kickoff(prompt)
+            print(f"\nCareerStrategist: {result.raw}")
         except KeyboardInterrupt:
             break
         except Exception as e:

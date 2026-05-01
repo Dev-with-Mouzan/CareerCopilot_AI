@@ -1,82 +1,110 @@
-# CareerCopilot AI Crew
+# CareerCopilot AI 🚀
+### *Your Agentic Job Matcher & Career Strategist*
 
-Welcome to the CareerCopilot AI Crew project, powered by [crewAI](https://crewai.com). This template is designed to help you set up a multi-agent AI system with ease, leveraging the powerful and flexible framework provided by crewAI. Our goal is to enable your agents to collaborate effectively on complex tasks, maximizing their collective intelligence and capabilities.
+CareerCopilot AI is a premium, multi-agent AI system designed to automate the modern job search. Powered by **CrewAI**, it orchestrates a team of specialized agents—a **Job Hunter**, an **ATS Analyst**, and a **Career Strategist**—to help users find their dream remote jobs, optimize their resumes, and build a long-term career roadmap.
 
-## Project Structure
+---
+
+## ✨ Key Features
+
+- 🔍 **Automated Multi-Source Scouting**: Scrapes and analyzes job listings from LinkedIn, Remotive, Jobicy, and more in real-time.
+- 📊 **Smart ATS Scoring**: Performs deep analysis of resume compatibility with target job descriptions, providing an exact match percentage.
+- 📝 **AI-Driven Resume Optimization**: Generates high-impact rewrites, keyword suggestions, and bullet-point enhancements.
+- 💡 **Strategic Career Coaching**: Provides a 30-60-90 day action plan, including skill-building roadmaps and networking strategies.
+- 🤖 **Interactive AI Chat**: A persistent career coach (powered by Gemini 2.0) that remembers your resume and previous conversations.
+- 💎 **Premium UI**: A stunning, modern web interface featuring glassmorphism, dynamic particles, and a seamless "dark mode" aesthetic.
+
+---
+
+## 🛠️ Tech Stack
+
+### **Backend (AI & Logic)**
+- **Framework**: [FastAPI](https://fastapi.tiangolo.com/) (Python)
+- **Agent Orchestration**: [CrewAI](https://crewai.com/)
+- **LLMs**: 
+  - **Llama 3.3 (Groq)**: For high-speed web scraping and tool-calling.
+  - **Gemini 2.0 Flash (Google)**: For deep analytical reasoning and coaching.
+- **Parsing**: PyPDF2 (Resume extraction)
+- **Scraping**: BeautifulSoup4, Requests
+
+### **Frontend (UI/UX)**
+- **Styling**: Vanilla CSS3 (Custom Design System) + [Tailwind CSS](https://tailwindcss.com/)
+- **Logic**: Vanilla JavaScript (Async/Await API Integration)
+- **Aesthetics**: Glassmorphism, Micro-animations, Backdrop Filters
+- **Typography**: Inter (Google Fonts)
+
+### **DevOps & Infrastructure**
+- **Backend Hosting**: [Railway](https://railway.app/)
+- **Frontend Hosting**: [Vercel](https://vercel.com/)
+- **Dependency Management**: [UV](https://docs.astral.sh/uv/)
+
+---
+
+## 🏗️ Project Architecture
 
 ```text
-CareerCopilot-AI/
-├── api/                  # Backend API (FastAPI) for resume parsing and job matching
-│   └── main.py           # API endpoints and logic
-├── frontend/             # Premium web interface
-│   ├── assets/           # UI assets (images, icons)
-│   ├── index.html        # Main entry point
-│   ├── script.js         # Frontend logic and API integration
-│   └── style.css         # Custom premium styling
-├── src/career_copilot_ai/ # Core Multi-Agent System (CrewAI)
-│   ├── config/           # Configuration files
-│   │   ├── agents.yaml   # Agent roles and goals
-│   │   └── tasks.yaml    # Task definitions
-│   ├── tools/            # Custom agent tools
-│   │   └── custom_tool.py
-│   ├── crew.py           # Crew orchestration logic
-│   ├── main.py           # Entry point for the AI system
-│   └── utils.py          # Helper functions
-├── knowledge/            # Domain-specific knowledge base for agents
-├── tests/                # Automated testing suite
-├── AGENTS.md             # CrewAI reference guide
-├── pyproject.toml        # Project dependencies and configuration (uv)
-└── vercel.json           # Vercel deployment configuration
+MatchForge-AI/
+├── api/                  # FastAPI Backend API
+│   └── main.py           # API endpoints & session logic
+├── frontend/             # Modern Web Interface
+│   ├── index.html        # Glassmorphic UI
+│   ├── script.js         # API Integration & UI logic
+│   └── style.css         # Custom animations & theme
+├── src/career_copilot_ai/ # Core AI Logic (CrewAI)
+│   ├── config/           # YAML configs for Agents & Tasks
+│   ├── tools/            # Custom Job Scraping & Search Tools
+│   ├── crew.py           # Multi-agent orchestration
+│   └── main.py           # Entry point for the AI crew
+├── requirements.txt      # Project dependencies
+└── README.md             # Project documentation
 ```
 
+---
 
-## Installation
+## 🚀 Getting Started
 
-Ensure you have Python >=3.10 <3.14 installed on your system. This project uses [UV](https://docs.astral.sh/uv/) for dependency management and package handling, offering a seamless setup and execution experience.
+### **1. Prerequisites**
+- Python 3.10 or higher
+- [UV](https://docs.astral.sh/uv/) (Recommended for fast dependency management)
 
-First, if you haven't already, install uv:
+### **2. Environment Setup**
+Create a `.env` file in the root directory:
+```env
+GROQ_API_KEY=your_groq_key
+GOOGLE_API_KEY=your_google_key
+```
 
+### **3. Installation**
 ```bash
-pip install uv
+# Install dependencies
+uv pip install -r requirements.txt
 ```
 
-Next, navigate to your project directory and install the dependencies:
+### **4. Running the Project**
 
-(Optional) Lock the dependencies and install them by using the CLI command:
+**Start the Backend:**
 ```bash
-crewai install
-```
-### Customizing
-
-**Add your `OPENAI_API_KEY` into the `.env` file**
-
-- Modify `src/career_copilot_ai/config/agents.yaml` to define your agents
-- Modify `src/career_copilot_ai/config/tasks.yaml` to define your tasks
-- Modify `src/career_copilot_ai/crew.py` to add your own logic, tools and specific args
-- Modify `src/career_copilot_ai/main.py` to add custom inputs for your agents and tasks
-
-## Running the Project
-
-To kickstart your crew of AI agents and begin task execution, run this from the root folder of your project:
-
-```bash
-$ crewai run
+uv run uvicorn api.main:app --reload
 ```
 
-This command initializes the CareerCopilot AI Crew, assembling the agents and assigning them tasks as defined in your configuration.
+**Launch the Frontend:**
+Simply open `frontend/index.html` in your browser or use a local live server.
 
-This example, unmodified, will run the create a `report.md` file with the output of a research on LLMs in the root folder.
+---
 
-## Understanding Your Crew
+## 🤖 Meet the AI Crew
 
-The CareerCopilot AI Crew is composed of multiple AI agents, each with unique roles, goals, and tools. These agents collaborate on a series of tasks, defined in `config/tasks.yaml`, leveraging their collective skills to achieve complex objectives. The `config/agents.yaml` file outlines the capabilities and configurations of each agent in your crew.
+- **Lead Job Hunter**: Scours LinkedIn and remote job boards to find the highest-quality matches for your specific skill set.
+- **ATS Analyst**: Expert in Applicant Tracking Systems. Analyzes job descriptions to find keyword gaps and rewrites your resume for maximum impact.
+- **Career Strategist**: Synthesizes all data into a cohesive career plan, ensuring you aren't just getting a job, but building a career.
 
-## Support
+---
 
-For support, questions, or feedback regarding the CareerCopilot AI Crew or crewAI.
-- Visit our [documentation](https://docs.crewai.com)
-- Reach out to us through our [GitHub repository](https://github.com/joaomdmoura/crewai)
-- [Join our Discord](https://discord.com/invite/X4JWnZnxPb)
-- [Chat with our docs](https://chatg.pt/DWjSBZn)
+## 🌐 Deployment
 
-Let's create wonders together with the power and simplicity of crewAI.
+- **Backend**: Deployed on **Railway** for persistent background task processing.
+- **Frontend**: Deployed on **Vercel** for lightning-fast static delivery.
+
+---
+
+Built with ❤️ by **Agentic Lab**

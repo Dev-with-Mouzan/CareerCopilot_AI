@@ -26,6 +26,16 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Ensure required directories exist
+os.makedirs("output", exist_ok=True)
+os.makedirs("data", exist_ok=True)
+
+# Verify critical environment variables
+if not os.environ.get("GROQ_API_KEY"):
+    print("WARNING: GROQ_API_KEY not found in environment.")
+if not os.environ.get("GOOGLE_API_KEY"):
+    print("WARNING: GOOGLE_API_KEY not found in environment.")
+
 
 app.add_middleware(
     CORSMiddleware,

@@ -47,12 +47,15 @@ body {
         transform: translateY(100vh) rotate(0deg);
         opacity: 0;
     }
+
     10% {
         opacity: 0.3;
     }
+
     90% {
         opacity: 0.3;
     }
+
     100% {
         transform: translateY(-100vh) rotate(360deg);
         opacity: 0;
@@ -137,6 +140,7 @@ body {
         transform: translateX(100%) scale(0.9);
         opacity: 0;
     }
+
     to {
         transform: translateX(0) scale(1);
         opacity: 1;
@@ -148,6 +152,7 @@ body {
         transform: translateX(0) scale(1);
         opacity: 1;
     }
+
     to {
         transform: translateX(100%) scale(0.9);
         opacity: 0;
@@ -232,6 +237,7 @@ body {
     0% {
         background-position: -200% 0;
     }
+
     100% {
         background-position: 200% 0;
     }
@@ -253,6 +259,7 @@ body {
         opacity: 0;
         transform: translateY(20px) scale(0.95);
     }
+
     to {
         opacity: 1;
         transform: translateY(0) scale(1);
@@ -329,15 +336,19 @@ button:active::after {
     0% {
         background-position: 0% 50%;
     }
+
     25% {
         background-position: 50% 100%;
     }
+
     50% {
         background-position: 100% 50%;
     }
+
     75% {
         background-position: 50% 0%;
     }
+
     100% {
         background-position: 0% 50%;
     }
@@ -347,9 +358,12 @@ button:active::after {
    Pulse Glow Effect
    ============================================ */
 @keyframes pulseGlow {
-    0%, 100% {
+
+    0%,
+    100% {
         box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
     }
+
     50% {
         box-shadow: 0 0 40px rgba(99, 102, 241, 0.5);
     }
@@ -363,15 +377,20 @@ button:active::after {
    Float Animation
    ============================================ */
 @keyframes float {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translateY(0) rotate(0deg);
     }
+
     25% {
         transform: translateY(-20px) rotate(5deg);
     }
+
     50% {
         transform: translateY(-10px) rotate(-5deg);
     }
+
     75% {
         transform: translateY(-25px) rotate(3deg);
     }
@@ -429,10 +448,14 @@ button:active::after {
 }
 
 @keyframes typing {
-    0%, 60%, 100% {
+
+    0%,
+    60%,
+    100% {
         transform: translateY(0) scale(1);
         opacity: 0.7;
     }
+
     30% {
         transform: translateY(-12px) scale(1.2);
         opacity: 1;
@@ -455,9 +478,17 @@ button:active::after {
     font-weight: 600;
 }
 
-.markdown-content h1 { font-size: 1.5rem; }
-.markdown-content h2 { font-size: 1.25rem; }
-.markdown-content h3 { font-size: 1.1rem; }
+.markdown-content h1 {
+    font-size: 1.5rem;
+}
+
+.markdown-content h2 {
+    font-size: 1.25rem;
+}
+
+.markdown-content h3 {
+    font-size: 1.1rem;
+}
 
 .markdown-content p {
     margin-bottom: 0.75rem;
@@ -485,9 +516,12 @@ button:active::after {
    Empty State Animation
    ============================================ */
 @keyframes floatIcon {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translateY(0);
     }
+
     50% {
         transform: translateY(-15px);
     }
@@ -553,9 +587,12 @@ nav a:hover::after {
 }
 
 @keyframes badgePulse {
-    0%, 100% {
+
+    0%,
+    100% {
         box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
     }
+
     50% {
         box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
     }
@@ -606,6 +643,7 @@ body {
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }

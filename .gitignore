@@ -14,6 +14,7 @@ venv/
 
 # Data / DB (TF-IDF job chunks — generated at runtime)
 data/
+output/
 
 # OS
 .DS_Store

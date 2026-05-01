@@ -1,6 +1,6 @@
 // CareerCopilot AI - Enhanced Frontend JavaScript
 // API Base URL - adjust for production
-const API_BASE = 'http://localhost:8000';
+const API_BASE = 'https://careercopolitai-production.up.railway.app';
 
 // State
 let currentJobId = null;
@@ -484,8 +484,8 @@ function displayJobs(jobs, container) {
     container.innerHTML = jobs.map((job, index) => {
         const matchScore = 95 - index * 5;
         const matchColor = matchScore >= 85 ? 'text-green-400 bg-green-400/10' :
-                          matchScore >= 70 ? 'text-yellow-400 bg-yellow-400/10' :
-                          'text-orange-400 bg-orange-400/10';
+            matchScore >= 70 ? 'text-yellow-400 bg-yellow-400/10' :
+                'text-orange-400 bg-orange-400/10';
 
         return `
             <div class="job-card group p-5 rounded-xl bg-card border border-white/5 hover:border-primary/50 cursor-pointer relative overflow-hidden">
