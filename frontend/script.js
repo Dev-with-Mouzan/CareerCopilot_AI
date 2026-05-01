@@ -72,34 +72,41 @@ function showToast(message, type = 'info') {
 // ============================================
 function updateAgentStatus(phase) {
     const cards = document.querySelectorAll('.agent-card');
-    const statuses = {
-        0: ['Active', 'Waiting', 'Waiting', 'Waiting'],
-        1: ['Done', 'Active', 'Waiting', 'Waiting'],
-        2: ['Done', 'Done', 'Active', 'Waiting'],
-        3: ['Done', 'Done', 'Done', 'Active']
-    };
+    const statusSequence = [
+        ['Active', 'Waiting', 'Waiting', 'Waiting'],
+        ['Done', 'Active', 'Waiting', 'Waiting'],
+        ['Done', 'Done', 'Active', 'Waiting'],
+        ['Done', 'Done', 'Done', 'Active'],
+        ['Done', 'Done', 'Done', 'Done']
+    ];
 
-    const colors = {
-        'Active': 'text-secondary',
-        'Done': 'text-green-400',
-        'Waiting': 'text-gray-500'
-    };
-
-    const currentStatuses = statuses[phase] || statuses[0];
+    const currentStatuses = statusSequence[phase] || statusSequence[0];
 
     cards.forEach((card, index) => {
         const statusEl = card.querySelector('.agent-status');
-        if (statusEl) {
-            statusEl.textContent = currentStatuses[index];
-            statusEl.className = `agent-status mt-1 text-xs ${colors[currentStatuses[index]]}`;
-        }
-
-        if (currentStatuses[index] === 'Active') {
-            card.classList.add('active');
-            card.style.borderColor = 'var(--primary)';
+        const status = currentStatuses[index];
+        
+        // Reset classes
+        card.classList.remove('agent-active', 'agent-complete', 'pulse-primary', 'floating');
+        
+        if (status === 'Active') {
+            card.classList.add('agent-active', 'pulse-primary');
+            if (statusEl) {
+                statusEl.innerHTML = '<span class="flex items-center justify-center gap-1">Scanning... <span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span></span>';
+                statusEl.className = 'agent-status mt-1 text-xs text-secondary font-medium';
+            }
+        } else if (status === 'Done') {
+            card.classList.add('agent-complete');
+            if (statusEl) {
+                statusEl.innerHTML = 'Complete ✅';
+                statusEl.className = 'agent-status mt-1 text-xs text-green-400 font-medium';
+            }
         } else {
-            card.classList.remove('active');
-            card.style.borderColor = '';
+            card.classList.add('opacity-40');
+            if (statusEl) {
+                statusEl.textContent = 'Waiting';
+                statusEl.className = 'agent-status mt-1 text-xs text-gray-500';
+            }
         }
     });
 }
