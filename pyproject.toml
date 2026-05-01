@@ -4,20 +4,7 @@ version = "0.1.0"
 description = "CareerCopilot AI using crewAI"
 authors = [{ name = "Your Name", email = "you@example.com" }]
 requires-python = ">=3.10,<3.14"
-dependencies = [
-    "fastapi>=0.111.0",
-    "uvicorn>=0.29.0",
-    "python-multipart>=0.0.9",
-    "beautifulsoup4>=4.13.5",
-    "crewai[litellm,tools]==1.13.0",
-    "scikit-learn>=1.4.0",
-    "pypdf2>=3.0.1",
-    "requests>=2.32.5",
-    "langchain-google-genai>=2.0.0",
-    "langchain-groq>=0.2.0",
-    "python-dotenv>=1.0.0",
-    "litellm>=1.0.0",
-]
+dependencies = []   # All dependencies are managed in requirements.txt
 
 [project.scripts]
 career_copilot_ai = "career_copilot_ai.main:run"
