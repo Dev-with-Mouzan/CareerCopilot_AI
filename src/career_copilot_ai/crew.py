@@ -8,15 +8,15 @@ import os
 
 # ---------------------------------------------------------------------------
 # LLM Configuration
-#   • job_hunter         → Groq  (fast, good at tool-calling & web scraping tasks)
+#   • job_hunter         → Gemini (strong at tool-calling & web scraping)
 #   • ats_analyst        → Gemini (strong analytical reasoning for scoring)
 #   • career_strategist  → Gemini (strategic planning and guidance)
-# ---------------------------------------------------------------------------
-_GROQ_LLM = LLM(
-    model="groq/llama-3.3-70b-versatile",
-    api_key=os.environ.get("GROQ_API_KEY"),
-    temperature=0.3,       # Lower = more consistent tool calls
-)
+# # ---------------------------------------------------------------------------
+# _GROQ_LLM = LLM(
+#     model="groq/llama-3.1-8b-instant",
+#     api_key=os.environ.get("GROQ_API_KEY"),
+#     temperature=0.3,       # Lower = more consistent tool calls
+# )
 
 _GEMINI_LLM = LLM(
     model="gemini/gemini-2.5-flash-lite",
@@ -46,7 +46,7 @@ class CareerCopilotAi():
     def job_hunter(self) -> Agent:
         return Agent(
             config=self.agents_config['job_hunter'], # type: ignore[index]
-            llm=_GROQ_LLM,                           # Groq: fast tool calls
+            llm=_GEMINI_LLM,                           # Gemini: robust tool calls
             tools=[TopJobsScraperTool(), LinkedInJobsScraperTool(), RemotiveAPITool(), JobicyAPITool()],
             verbose=True
         )
@@ -76,9 +76,10 @@ class CareerCopilotAi():
         )
 
     @task
-    def optimize_resume_task(self) -> Task:
+    def ats_scoring_task(self) -> Task:
         return Task(
             config=self.tasks_config['ats_scoring_task'], # type: ignore[index]
+            output_pydantic=JobReport
         )
 
     @task

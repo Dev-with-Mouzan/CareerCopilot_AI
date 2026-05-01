@@ -23,7 +23,7 @@ if _SRC not in sys.path:
 app = FastAPI(
     title="CareerCopilot-AI API",
     description="Agentic job matching and career coaching backend.",
-    version="1.0.0",
+    version="1.0.1",
 )
 
 # Ensure required directories exist
@@ -106,15 +106,21 @@ def _run_pipeline_sync(job_id: str, resume_text: str, websites: str, user_query:
 
         result = CareerCopilotAi().crew().kickoff(inputs=inputs)
 
+        # 1. Try to find the specific ATS scoring task output
+        job_output = next((o for o in result.tasks_output if 'ats' in o.description.lower() or 'score' in o.description.lower()), None)
         
-        _session["job_results"] = result.pydantic
+        # 2. Fallback: Find ANY task that returned pydantic data (the structured jobs)
+        if not job_output or not job_output.pydantic:
+            job_output = next((o for o in result.tasks_output if o.pydantic is not None), None)
+
+        _session["job_results"] = job_output.pydantic if job_output else result.pydantic
         _session["raw_jobs_md"] = result.raw
 
         _pipeline_jobs[job_id] = {
             "status": "done",
             "result": {
                 "raw": result.raw,
-                "jobs": result.pydantic.model_dump() if result.pydantic else None,
+                "jobs": _session["job_results"].model_dump().get("top_jobs") if _session["job_results"] else None,
             },
             "error": None,
             "completed_at": datetime.utcnow().isoformat(),
@@ -247,23 +253,24 @@ def get_status(job_id: str):
 @app.get("/api/jobs", tags=["Jobs"])
 def get_jobs():
     """
-    Returns the latest job matching results from the most recent pipeline run.
-    Returns 404 if no pipeline has been run yet.
+    Returns the latest job matching results.
     """
     if _session["job_results"] is None and not _session["raw_jobs_md"]:
-        raise HTTPException(
-            status_code=404,
-            detail="No job results yet. Run the pipeline first via /api/run-crew.",
-        )
+        raise HTTPException(status_code=404, detail="No results yet.")
 
-    result = {}
-    if _session["raw_jobs_md"]:
-        result["raw_markdown"] = _session["raw_jobs_md"]
+    result = {
+        "raw_markdown": _session["raw_jobs_md"],
+        "jobs": None
+    }
+
     if _session["job_results"]:
+        # Ensure we return the inner list for the frontend to easily find
         try:
-            result["jobs"] = _session["job_results"].model_dump()
+            dump = _session["job_results"].model_dump()
+            result["jobs"] = dump.get("top_jobs") or dump
         except Exception:
-            result["jobs"] = str(_session["job_results"])
+            # Fallback if it's already a dict or list
+            result["jobs"] = _session["job_results"]
 
     return result
 
