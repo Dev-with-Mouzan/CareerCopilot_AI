@@ -39,7 +39,7 @@ if not os.environ.get("GOOGLE_API_KEY"):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # Replace "*" with your Vercel URL in production
+    allow_origins=["https://career-copilot-ai-five.vercel.app/"],          # Replace "*" with your Vercel URL in production
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -289,13 +289,27 @@ async def chat(request: ChatRequest):
 
     try:
         from career_copilot_ai.crew import CareerCopilotAi
+        from crewai import Crew, Task
 
         crew_instance = CareerCopilotAi()
-        coach_agent = crew_instance.career_coach()
+        coach_agent = crew_instance.career_strategist()
 
-        
+        # Create a dynamic task for the chat
+        chat_task = Task(
+            description=prompt,
+            agent=coach_agent,
+            expected_output="A helpful, professional response from an AI Career Coach."
+        )
+
+        # Create a single-agent crew to handle the task
+        chat_crew = Crew(
+            agents=[coach_agent],
+            tasks=[chat_task],
+            verbose=False
+        )
+
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, coach_agent.kickoff, prompt)
+        result = await loop.run_in_executor(None, chat_crew.kickoff)
         reply = result.raw
 
     except Exception as exc:
