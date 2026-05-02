@@ -49,14 +49,14 @@ def _tfidf_top_matches(chunks: list, query: str, top_k: int = 5) -> list:
 class TopJobsScraperInput(BaseModel):
     """Input schema for TopJobsScraperTool."""
     url: str = Field(..., description="The URL of the website to scrape for jobs.")
-    resume_text: str = Field(..., description="The text of the user's resume to match against.")
+    search_query: str = Field(..., description="The keywords or skills from the resume to match against the scraped content.")
 
 class TopJobsScraperTool(BaseTool):
     name: str = "top_jobs_scraper_tool"
     description: str = "Scrapes a URL, chunks the text, and uses TF-IDF to return the most relevant job chunks matching the resume."
     args_schema: Type[BaseModel] = TopJobsScraperInput
 
-    def _run(self, url: str, resume_text: str) -> str:
+    def _run(self, url: str, search_query: str) -> str:
         try:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
@@ -88,8 +88,8 @@ class TopJobsScraperTool(BaseTool):
             except Exception as e:
                 print(f"Warning: Failed to save chunks: {e}")
 
-            # TF-IDF matching — no API key or model needed
-            top_chunks = _tfidf_top_matches(valid_chunks, resume_text, top_k=5)
+            # TF-IDF matching using search query
+            top_chunks = _tfidf_top_matches(valid_chunks, search_query, top_k=5)
             return f"Top matches from {url}:\n\n" + "\n---\n".join(top_chunks)
 
         except Exception as e:
@@ -130,9 +130,9 @@ class VectorDBQueryTool(BaseTool):
 
 class RemotiveAPIInput(BaseModel):
     """Input schema for RemotiveAPITool."""
-    resume_text: str = Field(
+    search_query: str = Field(
         ...,
-        description="The full text of the user's resume. Keywords are extracted automatically."
+        description="The job title or keywords to search for (e.g. 'Python Developer')."
     )
     limit: Optional[int] = Field(
         default=10,
@@ -148,10 +148,9 @@ class RemotiveAPITool(BaseTool):
     )
     args_schema: Type[BaseModel] = RemotiveAPIInput
 
-    def _run(self, resume_text: str, limit: int = 10) -> str:
-        # Extract keywords from resume for the search query
-        keywords = _extract_keywords_from_resume(resume_text, max_keywords=3)
-        search_term = keywords if keywords else "remote"
+    def _run(self, search_query: str, limit: int = 10) -> str:
+        # Use provided query or fallback
+        search_term = search_query if search_query else "remote"
 
         url = f"https://remotive.com/api/remote-jobs?search={quote_plus(search_term)}&limit={limit}"
 
@@ -196,9 +195,9 @@ class RemotiveAPITool(BaseTool):
 
 class JobicyAPIInput(BaseModel):
     """Input schema for JobicyAPITool."""
-    resume_text: str = Field(
+    search_tag: str = Field(
         ...,
-        description="The full text of the user's resume. Keywords are extracted automatically."
+        description="The job category or tag to search for (e.g. 'software', 'dev', 'marketing')."
     )
     count: Optional[int] = Field(
         default=10,
@@ -214,9 +213,8 @@ class JobicyAPITool(BaseTool):
     )
     args_schema: Type[BaseModel] = JobicyAPIInput
 
-    def _run(self, resume_text: str, count: int = 10) -> str:
-        keywords = _extract_keywords_from_resume(resume_text, max_keywords=2)
-        tag = keywords.split()[0] if keywords else "software"  # Jobicy uses single tag
+    def _run(self, search_tag: str, count: int = 10) -> str:
+        tag = search_tag.split()[0] if search_tag else "software"  # Jobicy uses single tag
 
         url = f"https://jobicy.com/api/v2/remote-jobs?count={count}&tag={quote_plus(tag)}"
 
@@ -293,9 +291,9 @@ def _extract_keywords_from_resume(resume_text: str, max_keywords: int = 5) -> st
 
 class LinkedInJobsInput(BaseModel):
     """Input schema for LinkedInJobsScraperTool."""
-    resume_text: str = Field(
+    search_query: str = Field(
         ...,
-        description="The full text of the user's resume. Keywords are extracted automatically."
+        description="The job title or keywords to search for (e.g. 'Senior Python Engineer')."
     )
     location: Optional[str] = Field(
         default="United States",
@@ -314,11 +312,11 @@ class LinkedInJobsScraperTool(BaseTool):
     )
     args_schema: Type[BaseModel] = LinkedInJobsInput
 
-    def _run(self, resume_text: str, location: Optional[str] = "United States") -> str:
-        # 1. Extract keywords from resume
-        keywords = _extract_keywords_from_resume(resume_text)
+    def _run(self, search_query: str, location: Optional[str] = "United States") -> str:
+        # 1. Use the provided search query
+        keywords = search_query
         if not keywords:
-            return "Could not extract any keywords from the resume text."
+            return "No search query provided."
 
         loc = location or "United States"
 

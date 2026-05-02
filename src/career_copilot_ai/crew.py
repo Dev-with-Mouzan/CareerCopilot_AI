@@ -8,15 +8,15 @@ import os
 
 # ---------------------------------------------------------------------------
 # LLM Configuration
-#   • job_hunter         → Gemini (strong at tool-calling & web scraping)
-#   • ats_analyst        → Gemini (strong analytical reasoning for scoring)
-#   • career_strategist  → Gemini (strategic planning and guidance)
-# # ---------------------------------------------------------------------------
-# _GROQ_LLM = LLM(
-#     model="groq/llama-3.1-8b-instant",
-#     api_key=os.environ.get("GROQ_API_KEY"),
-#     temperature=0.3,       # Lower = more consistent tool calls
-# )
+#   • job_hunter         → Groq (Fast tool-calling & web searching)
+#   • ats_analyst        → Gemini (Deep analytical reasoning)
+#   • career_strategist  → Gemini (Strategic planning)
+# ---------------------------------------------------------------------------
+_GROQ_LLM = LLM(
+    model="groq/llama-3.1-8b-instant",
+    api_key=os.environ.get("GROQ_API_KEY"),
+    temperature=0.1,       # Lower temperature for precise tool calling
+)
 
 _GEMINI_LLM = LLM(
     model="gemini/gemini-2.5-flash-lite",
@@ -46,7 +46,7 @@ class CareerCopilotAi():
     def job_hunter(self) -> Agent:
         return Agent(
             config=self.agents_config['job_hunter'], # type: ignore[index]
-            llm=_GEMINI_LLM,                           # Gemini: robust tool calls
+            llm=_GROQ_LLM,                           # Groq: ultra-fast tool calls
             tools=[TopJobsScraperTool(), LinkedInJobsScraperTool(), RemotiveAPITool(), JobicyAPITool()],
             verbose=True
         )

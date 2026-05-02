@@ -1,19 +1,18 @@
 identify_skill_gaps_task:
   description: >
-    Search for remote job opportunities using THREE sources:
+    Search for remote job opportunities by first analyzing the user's resume
+    to extract 3-5 high-impact job search keywords (e.g., "Python Developer",
+    "Machine Learning Engineer"). Then, search using these THREE sources:
 
     1. **LinkedIn (priority)**: Call `linkedin_jobs_scraper_tool` with
-       resume_text = "{resume}" and location = "United States".
-       The tool auto-extracts keywords and queries LinkedIn's Jobs Guest API.
+       search_query = [extracted_keywords] and location = "United States".
 
-    2. **Remotive**: Call `remotive_api_tool` with resume_text = "{resume}".
-       This uses Remotive's free JSON API — do NOT scrape remotive.com directly.
+    2. **Remotive**: Call `remotive_api_tool` with search_query = [extracted_keywords].
 
-    3. **Jobicy**: Call `jobicy_api_tool` with resume_text = "{resume}".
-       This uses Jobicy's free JSON API — do NOT scrape remote.co directly.
+    3. **Jobicy**: Call `jobicy_api_tool` with search_tag = [primary_keyword].
 
     4. **Other websites**: For each site below, call `top_jobs_scraper_tool`
-       with the site URL and resume_text = "{resume}":
+       with the site URL and search_query = [extracted_keywords]:
        {websites}
 
     Merge all results and compile the top 8 to 10 best matching jobs overall.
