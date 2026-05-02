@@ -57,12 +57,23 @@ class TopJobsScraperTool(BaseTool):
     args_schema: Type[BaseModel] = TopJobsScraperInput
 
     def _run(self, url: str, search_query: str) -> str:
+        import time
         try:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
             }
-            response = requests.get(url, headers=headers, timeout=15)
-            response.raise_for_status()
+            max_retries = 3
+            response = None
+            for attempt in range(max_retries):
+                try:
+                    response = requests.get(url, headers=headers, timeout=15)
+                    response.raise_for_status()
+                    break
+                except requests.RequestException as e:
+                    if attempt < max_retries - 1:
+                        time.sleep(2)
+                    else:
+                        raise e
 
             soup = BeautifulSoup(response.content, 'html.parser')
             for element in soup(["script", "style", "nav", "footer", "noscript"]):
@@ -154,14 +165,22 @@ class RemotiveAPITool(BaseTool):
 
         url = f"https://remotive.com/api/remote-jobs?search={quote_plus(search_term)}&limit={limit}"
 
-        try:
-            response = requests.get(url, timeout=20)
-            response.raise_for_status()
-            data = response.json()
-        except requests.RequestException as exc:
-            return f"Remotive API request failed: {exc}"
-        except ValueError:
-            return "Remotive API returned non-JSON response."
+        import time
+        max_retries = 3
+        response = None
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(url, timeout=20)
+                response.raise_for_status()
+                data = response.json()
+                break
+            except requests.RequestException as exc:
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                else:
+                    return f"Remotive API request failed: {exc}"
+            except ValueError:
+                return "Remotive API returned non-JSON response."
 
         jobs = data.get("jobs", [])
         if not jobs:
@@ -218,22 +237,38 @@ class JobicyAPITool(BaseTool):
 
         url = f"https://jobicy.com/api/v2/remote-jobs?count={count}&tag={quote_plus(tag)}"
 
-        try:
-            response = requests.get(url, timeout=20)
-            response.raise_for_status()
-            data = response.json()
-        except requests.RequestException as exc:
-            return f"Jobicy API request failed: {exc}"
-        except ValueError:
-            return "Jobicy API returned non-JSON response."
+        import time
+        max_retries = 3
+        response = None
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(url, timeout=20)
+                response.raise_for_status()
+                data = response.json()
+                break
+            except requests.RequestException as exc:
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                else:
+                    return f"Jobicy API request failed: {exc}"
+            except ValueError:
+                return "Jobicy API returned non-JSON response."
 
         jobs = data.get("jobs", [])
         if not jobs:
             # Fallback: fetch without tag filter
             try:
                 fallback_url = f"https://jobicy.com/api/v2/remote-jobs?count={count}"
-                r2 = requests.get(fallback_url, timeout=20)
-                jobs = r2.json().get("jobs", [])
+                for attempt in range(max_retries):
+                    try:
+                        r2 = requests.get(fallback_url, timeout=20)
+                        jobs = r2.json().get("jobs", [])
+                        break
+                    except Exception:
+                        if attempt < max_retries - 1:
+                            time.sleep(2)
+                        else:
+                            raise
             except Exception:
                 return f"No jobs found on Jobicy for tag: '{tag}'"
 
@@ -338,11 +373,19 @@ class LinkedInJobsScraperTool(BaseTool):
             "Accept-Language": "en-US,en;q=0.5",
         }
 
-        try:
-            response = requests.get(url, headers=headers, timeout=20)
-            response.raise_for_status()
-        except requests.RequestException as exc:
-            return f"LinkedIn request failed: {exc}"
+        import time
+        max_retries = 3
+        response = None
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(url, headers=headers, timeout=20)
+                response.raise_for_status()
+                break
+            except requests.RequestException as exc:
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                else:
+                    return f"LinkedIn request failed: {exc}"
 
         # 3. Parse the HTML cards returned by LinkedIn's guest API
         soup = BeautifulSoup(response.text, "html.parser")
