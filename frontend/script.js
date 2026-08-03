@@ -1,6 +1,6 @@
 // CareerCopilot AI - Enhanced Frontend JavaScript
 // API Base URL - adjust for production
-const API_BASE = 'https://careercopolitai-production.up.railway.app';
+const API_BASE = 'http://13.236.67.129';
 
 // State
 let currentJobId = null;
