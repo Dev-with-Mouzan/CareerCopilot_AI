@@ -1,6 +1,6 @@
 // CareerCopilot AI - Enhanced Frontend JavaScript
 // API Base URL - adjust for production
-const API_BASE = 'http://13.236.67.129';
+const API_BASE = 'https://overseas-transcription-rehab-fancy.trycloudflare.com/';
 
 // State
 let currentJobId = null;
