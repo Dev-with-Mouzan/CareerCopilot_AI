@@ -68,7 +68,7 @@
 - **Typography**: Inter (Google Fonts)
 
 ### DevOps & Infrastructure
-- **Backend Hosting**: [Railway](https://railway.app/) — Persistent background task processing
+- **Backend Hosting**: [AWS](https://aws.amazon.com/) — Persistent background task processing
 - **Frontend Hosting**: [Vercel](https://vercel.com/) — Lightning-fast static delivery
 - **Dependency Management**: [UV](https://docs.astral.sh/uv/)
 
@@ -130,7 +130,7 @@ MatchForge-AI/
 
 ### 1 — Clone the Repository
 ```bash
-git clone https://github.com/your-username/career-copilot-ai.git
+git clone https://github.com/Dev-with-Mouzan/CareerCopilot_AI.git
 cd career-copilot-ai
 ```
 
@@ -143,6 +143,7 @@ GOOGLE_API_KEY=your_google_api_key
 
 ### 3 — Install Dependencies
 ```bash
+uv sync
 uv pip install -r requirements.txt
 ```
 
@@ -150,7 +151,7 @@ uv pip install -r requirements.txt
 
 **Start the backend server:**
 ```bash
-uv run uvicorn api.main:app --reload
+  uvicorn api.main:app --reload
 ```
 
 **Launch the frontend:**
@@ -162,8 +163,8 @@ Open `frontend/index.html` in your browser, or start a local live server.
 
 | Layer | Platform | Purpose |
 |---|---|---|
-| **Frontend** | [Vercel](https://vercel.com/) | Global CDN, instant static delivery |
-| **Backend** | [Railway](https://railway.app/) | Persistent server for long-running AI tasks |
+| **Frontend** | [Vercel](https://career-copilot-ai-five.vercel.app) | Global CDN, instant static delivery |
+| **Backend** | [AWS](https://overseas-transcription-rehab-fancy.trycloudflare.com/docs) | Persistent server for long-running AI tasks |
 
 **🔗 Live Application: [https://career-copilot-ai-five.vercel.app/](https://career-copilot-ai-five.vercel.app/)**
 
@@ -171,11 +172,11 @@ Open `frontend/index.html` in your browser, or start a local live server.
 
 ## 🗺️ Roadmap
 
-- [ ] LinkedIn OAuth integration for one-click profile import
-- [ ] Automated job application submission
-- [ ] Interview preparation agent with mock Q&A
-- [ ] Salary benchmarking and negotiation coaching
-- [ ] Browser extension for real-time JD analysis
+- [✔] LinkedIn OAuth integration for one-click profile import
+- [✔] Automated job application submission
+- [✔] Interview preparation agent with mock Q&A
+- [✔] Salary benchmarking and negotiation coaching
+- [✔] Browser extension for real-time JD analysis
 
 ---
 
@@ -195,7 +196,7 @@ Contributions are welcome! Please open an issue first to discuss what you'd like
 
 <div align="center">
 
-Built with ❤️ by **Agentic Lab**
+Built with ❤️ by **Mouzan Raza**
 
 *If CareerCopilot helped you land a role, consider giving this repo a ⭐ — it means the world!*
 
