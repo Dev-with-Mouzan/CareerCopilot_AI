@@ -1,0 +1,323 @@
+"""LangGraph StateGraph for job discovery, normalization, and matching.
+
+Workflow:
+    extract_keywords -> collect_from_sources -> normalize_jobs -> deduplicate ->
+    embed_jobs -> filter_candidates -> score_matches -> generate_recommendations
+
+Parallel source collection via JobSourceManager. Deterministic scoring; LLM only for final explanation.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Literal
+
+from langgraph.graph import END, START, StateGraph
+
+from backend.core.schemas import Job, JobMatch, ResumeProfile
+from backend.core.state import JobState
+from backend.services.embeddings import (
+    batch_embed,
+    compute_similarity,
+    get_embedding_service,
+)
+from backend.services.job_deduplicator import deduplicate
+from backend.services.job_normalizer import (
+    extract_skills_from_description,
+    normalize_generic_job,
+    normalize_jobicy_job,
+    normalize_linkedin_job,
+    normalize_remotive_job,
+)
+from backend.services.job_sources.manager import JobSourceManager
+from backend.services.llm_service import ModelRouter, TaskCategory
+
+logger = logging.getLogger(__name__)
+
+_router = ModelRouter()
+_source_manager = JobSourceManager()
+_source_manager.register_default_sources()
+
+
+# ── Nodes ──────────────────────────────────────────────────────────────────────
+
+
+async def extract_keywords_node(state: JobState) -> dict:
+    """Extract search keywords from the target role description."""
+    target = state.get("target_role", "")
+    resume_id = state.get("resume_id")
+
+    # Extract skills from any existing resume profile if available
+    # For now, derive keywords from the target role string
+    keywords = extract_skills_from_description(target)
+
+    # Ensure the target role itself is included
+    if target and target.lower() not in [k.lower() for k in keywords]:
+        keywords.insert(0, target)
+
+    return {"query_keywords": keywords}
+
+
+async def collect_from_sources_node(state: JobState) -> dict:
+    """Query all registered job sources in parallel with failure isolation."""
+    query = " ".join(state.get("query_keywords", []))
+    if not query:
+        return {"source_results": {}}
+
+    try:
+        jobs = await _source_manager.collect_jobs(query=query, limit=50)
+    except Exception as exc:
+        logger.error("Job collection failed: %s", exc)
+        return {"source_results": {}}
+
+    # Group jobs by source
+    source_map: dict[str, list[dict]] = {}
+    for job in jobs:
+        source_map.setdefault(job.source, []).append(job.model_dump())
+
+    return {"source_results": source_map}
+
+
+async def normalize_jobs_node(state: JobState) -> dict:
+    """Normalize raw job listings from each source into Job schema."""
+    raw_results = state.get("source_results", {})
+    normalized: list[dict] = []
+
+    normalizers = {
+        "remotive": normalize_remotive_job,
+        "jobicy": normalize_jobicy_job,
+        "linkedin": normalize_linkedin_job,
+    }
+
+    for source_name, raw_jobs in raw_results.items():
+        normalizer = normalizers.get(source_name, normalize_generic_job)
+        for raw in raw_jobs:
+            try:
+                job = normalizer(raw)
+                normalized.append(job.model_dump())
+            except Exception as exc:
+                logger.warning("Failed to normalize job from %s: %s", source_name, exc)
+
+    return {"normalized_jobs": normalized}
+
+
+async def deduplicate_node(state: JobState) -> dict:
+    """Remove duplicate job listings across sources."""
+    normalized = state.get("normalized_jobs", [])
+    if not normalized:
+        return {"deduplicated_jobs": []}
+
+    jobs = [Job(**d) for d in normalized]
+    unique = deduplicate(jobs)
+    return {"deduplicated_jobs": [j.model_dump() for j in unique]}
+
+
+async def embed_jobs_node(state: JobState) -> dict:
+    """Generate embeddings for deduplicated jobs for semantic matching."""
+    deduped = state.get("deduplicated_jobs", [])
+    if not deduped:
+        return {"candidate_jobs": []}
+
+    # Build text representations for embedding
+    texts = []
+    for job_data in deduped:
+        parts = [job_data.get("title", ""), job_data.get("company", "")]
+        parts.extend(job_data.get("skills", []))
+        desc = job_data.get("description", "")[:300]
+        parts.append(desc)
+        texts.append(" ".join(parts))
+
+    try:
+        embeddings = batch_embed(texts)
+        for job_data, emb in zip(deduped, embeddings):
+            job_data["_embedding"] = emb
+    except Exception as exc:
+        logger.warning("Job embedding failed: %s", exc)
+
+    return {"candidate_jobs": deduped}
+
+
+async def filter_candidates_node(state: JobState) -> dict:
+    """Pre-filter candidates based on basic criteria (remove obviously irrelevant)."""
+    candidates = state.get("candidate_jobs", [])
+    keywords = [k.lower() for k in state.get("query_keywords", [])]
+
+    filtered = []
+    for job_data in candidates:
+        title = (job_data.get("title", "") or "").lower()
+        skills = [s.lower() for s in job_data.get("skills", [])]
+        desc = (job_data.get("description", "") or "").lower()[:500]
+
+        # Basic relevance check: at least one keyword must match
+        combined_text = f"{title} {' '.join(skills)} {desc}"
+        if any(kw in combined_text for kw in keywords):
+            filtered.append(job_data)
+
+    return {"candidate_jobs": filtered}
+
+
+async def score_matches_node(state: JobState) -> dict:
+    """Score each candidate against the resume using deterministic metrics + semantic similarity."""
+    candidates = state.get("candidate_jobs", [])
+    if not candidates:
+        return {"matched_jobs": []}
+
+    # Load resume profile from state (would normally come from DB)
+    resume_text = state.get("query_keywords", [])
+    resume_skills = set(k.lower() for k in resume_text)
+
+    matched: list[dict] = []
+    embedding_service = get_embedding_service()
+
+    for job_data in candidates:
+        job_skills = set(s.lower() for s in job_data.get("skills", []))
+        title = (job_data.get("title", "") or "").lower()
+
+        # Skill overlap score
+        if job_skills:
+            overlap = len(resume_skills & job_skills) / len(job_skills)
+        else:
+            overlap = 0.5  # default if no skills listed
+
+        # Keyword-in-title score
+        title_score = sum(1 for k in resume_skills if k in title) / max(len(resume_skills), 1)
+        title_score = min(title_score, 1.0)
+
+        # Semantic score (embedding similarity)
+        semantic_score = 0.0
+        job_emb = job_data.get("_embedding")
+        if job_emb and resume_skills:
+            # Create a simple query embedding from resume keywords
+            query_text = " ".join(resume_skills)
+            try:
+                query_emb = embedding_service.generate_embedding(query_text)
+                semantic_score = compute_similarity(query_emb, job_emb)
+            except Exception:
+                semantic_score = 0.5
+
+        # Composite score
+        overall = (overlap * 0.4 + title_score * 0.3 + semantic_score * 0.3)
+
+        missing = list(job_skills - resume_skills)
+
+        match = JobMatch(
+            job_id=job_data.get("id") or "",
+            overall_score=round(overall, 3),
+            skill_score=round(overlap, 3),
+            experience_score=0.8,  # default; would need DB data
+            seniority_score=0.8,
+            location_score=0.9 if job_data.get("remote") else 0.7,
+            salary_score=0.8,
+            semantic_score=round(semantic_score, 3),
+            missing_skills=missing,
+        )
+
+        job_data["match"] = match.model_dump()
+        matched.append(job_data)
+
+    # Sort by overall score descending
+    matched.sort(key=lambda j: j["match"]["overall_score"], reverse=True)
+
+    return {"matched_jobs": matched}
+
+
+async def generate_recommendations_node(state: JobState) -> dict:
+    """Use LLM to generate a natural-language recommendation summary."""
+    matched = state.get("matched_jobs", [])
+    if not matched:
+        return {"recommendations": ["No matching jobs found. Try broadening your search."]}
+
+    top_jobs = matched[:5]
+    job_summaries = []
+    for i, job in enumerate(top_jobs, 1):
+        match = job.get("match", {})
+        job_summaries.append(
+            f"{i}. {job.get('title', 'N/A')} at {job.get('company', 'N/A')} "
+            f"(score: {match.get('overall_score', 0):.0%}, "
+            f"missing: {', '.join(match.get('missing_skills', [])[:3])})"
+        )
+
+    prompt = (
+        f"Target role: {state.get('target_role', 'software engineer')}\n"
+        f"Top {len(top_jobs)} matched jobs:\n" + "\n".join(job_summaries)
+        + "\n\nProvide 2-3 brief strategic recommendations for the user."
+    )
+
+    try:
+        result = await _router.complete(
+            messages=[{"role": "user", "content": prompt}],
+            category=TaskCategory.CAREER_STRATEGY,
+        )
+        recommendations = [line.strip() for line in str(result).split("\n") if line.strip()]
+        return {"recommendations": recommendations}
+    except Exception as exc:
+        logger.warning("LLM recommendation failed: %s", exc)
+        return {"recommendations": [f"Top match: {top_jobs[0].get('title', 'N/A')} at {top_jobs[0].get('company', 'N/A')}"]}
+
+
+async def error_node(state: JobState) -> dict:
+    """Handle pipeline errors."""
+    logger.error("Job pipeline failed for user=%s", state.get("user_id"))
+    return {"recommendations": ["Job search pipeline encountered an error. Please try again."]}
+
+
+# ── Routing ────────────────────────────────────────────────────────────────────
+
+
+def route_after_collect(state: JobState) -> Literal["normalize_jobs", "error_node"]:
+    """Branch on whether sources returned results."""
+    if not state.get("source_results"):
+        return "error_node"
+    return "normalize_jobs"
+
+
+def route_after_filter(state: JobState) -> Literal["score_matches", "error_node"]:
+    """Branch on whether filtering yielded candidates."""
+    if not state.get("candidate_jobs"):
+        return "error_node"
+    return "score_matches"
+
+
+# ── Graph ──────────────────────────────────────────────────────────────────────
+
+
+def build_job_graph() -> StateGraph:
+    """Construct the job discovery and matching workflow."""
+    graph = StateGraph(JobState)
+
+    # Nodes
+    graph.add_node("extract_keywords", extract_keywords_node)
+    graph.add_node("collect_from_sources", collect_from_sources_node)
+    graph.add_node("normalize_jobs", normalize_jobs_node)
+    graph.add_node("deduplicate", deduplicate_node)
+    graph.add_node("embed_jobs", embed_jobs_node)
+    graph.add_node("filter_candidates", filter_candidates_node)
+    graph.add_node("score_matches", score_matches_node)
+    graph.add_node("generate_recommendations", generate_recommendations_node)
+    graph.add_node("error_node", error_node)
+
+    # Edges
+    graph.add_edge(START, "extract_keywords")
+    graph.add_edge("extract_keywords", "collect_from_sources")
+    graph.add_conditional_edges(
+        "collect_from_sources",
+        route_after_collect,
+        {"normalize_jobs": "normalize_jobs", "error_node": "error_node"},
+    )
+    graph.add_edge("normalize_jobs", "deduplicate")
+    graph.add_edge("deduplicate", "embed_jobs")
+    graph.add_edge("embed_jobs", "filter_candidates")
+    graph.add_conditional_edges(
+        "filter_candidates",
+        route_after_filter,
+        {"score_matches": "score_matches", "error_node": "error_node"},
+    )
+    graph.add_edge("score_matches", "generate_recommendations")
+    graph.add_edge("generate_recommendations", END)
+    graph.add_edge("error_node", END)
+
+    return graph
+
+
+# Compiled graph instance
+job_pipeline = build_job_graph().compile()

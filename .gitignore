@@ -16,6 +16,13 @@ venv/
 data/
 output/
 
+# Test / quality
+*.db
+.pytest_cache/
+.mypy_cache/
+coverage/
+htmlcov/
+
 # OS
 .DS_Store
 Thumbs.db

@@ -1,786 +1,888 @@
-// CareerCopilot AI - Enhanced Frontend JavaScript
-// API Base URL - adjust for production
-const API_BASE = 'http://13.236.67.129';
+// ═══════════════════════════════════════════════════════════════════════════════
+// CareerCopilot AI — Main Script
+// ═══════════════════════════════════════════════════════════════════════════════
 
-// State
-let currentJobId = null;
-let isUploading = false;
-let resumeUploaded = false;
-let agentStatusInterval = null;
+const API_BASE = '/api';
 
-// ============================================
-// Particle Background Effect
-// ============================================
-function createParticles() {
-    const container = document.getElementById('particles-container');
-    if (!container) return;
+let currentUser = null;
+let resumeData = null;
+let jobsData = [];
+let careerPlan = null;
+let interviewQuestions = [];
+let clHistory = [];
 
-    const particleCount = 30;
-
-    for (let i = 0; i < particleCount; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'particle';
-
-        const size = Math.random() * 4 + 2;
-        particle.style.width = `${size}px`;
-        particle.style.height = `${size}px`;
-        particle.style.left = `${Math.random() * 100}%`;
-        particle.style.animationDelay = `${Math.random() * 20}s`;
-        particle.style.animationDuration = `${15 + Math.random() * 20}s`;
-
-        // Random gradient colors
-        const colors = [
-            'radial-gradient(circle, #6366f1 0%, transparent 70%)',
-            'radial-gradient(circle, #22d3ee 0%, transparent 70%)',
-            'radial-gradient(circle, #a855f7 0%, transparent 70%)'
-        ];
-        particle.style.background = colors[Math.floor(Math.random() * colors.length)];
-
-        container.appendChild(particle);
-    }
-}
-
-// ============================================
-// Toast Notifications - Enhanced
-// ============================================
+// ── Utility ─────────────────────────────────────────────────────────────────
 function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-
-    const icons = {
-        success: '✓',
-        error: '✕',
-        info: 'ℹ'
-    };
-
-    toast.innerHTML = `
-        <span class="text-xl">${icons[type]}</span>
-        <span class="text-sm font-medium">${message}</span>
-    `;
-
+    toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i> ${message}`;
     container.appendChild(toast);
-
-    setTimeout(() => {
-        toast.style.animation = 'toastSlideOut 0.4s ease forwards';
-        setTimeout(() => toast.remove(), 400);
-    }, 4000);
+    setTimeout(() => { toast.style.animation = 'toastIn 0.3s ease reverse forwards'; setTimeout(() => toast.remove(), 300); }, 3500);
 }
 
-// ============================================
-// Agent Status Updates
-// ============================================
-function updateAgentStatus(phase) {
-    const cards = document.querySelectorAll('.agent-card');
-    const statusSequence = [
-        ['Active', 'Waiting', 'Waiting', 'Waiting'],
-        ['Done', 'Active', 'Waiting', 'Waiting'],
-        ['Done', 'Done', 'Active', 'Waiting'],
-        ['Done', 'Done', 'Done', 'Active'],
-        ['Done', 'Done', 'Done', 'Done']
-    ];
+function showLoading(text = 'Loading...') {
+    let overlay = document.querySelector('.loading-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'loading-overlay';
+        overlay.innerHTML = '<div class="loader"><div class="loader-spinner"></div><p></p></div>';
+        document.body.appendChild(overlay);
+    }
+    overlay.querySelector('p').textContent = text;
+    overlay.style.display = 'flex';
+}
 
-    const currentStatuses = statusSequence[phase] || statusSequence[0];
+function hideLoading() {
+    const overlay = document.querySelector('.loading-overlay');
+    if (overlay) overlay.style.display = 'none';
+}
 
-    cards.forEach((card, index) => {
-        const statusEl = card.querySelector('.agent-status');
-        const status = currentStatuses[index];
-        
-        // Reset classes
-        card.classList.remove('agent-active', 'agent-complete', 'pulse-primary', 'floating');
-        
-        if (status === 'Active') {
-            card.classList.add('agent-active', 'pulse-primary');
-            if (statusEl) {
-                statusEl.innerHTML = '<span class="flex items-center justify-center gap-1">Scanning... <span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span></span>';
-                statusEl.className = 'agent-status mt-1 text-xs text-secondary font-medium';
+function showAuthModal(message) {
+    const modal = document.getElementById('auth-modal');
+    modal.classList.add('active');
+    if (message) {
+        const err = document.getElementById('auth-error');
+        err.textContent = message;
+        err.classList.remove('hidden');
+        setTimeout(() => err.classList.add('hidden'), 5000);
+    }
+}
+
+function hideAuthModal() {
+    document.getElementById('auth-modal').classList.remove('active');
+}
+
+function skipAuth() {
+    localStorage.setItem('token', 'demo-token');
+    currentUser = { name: 'Guest' };
+    hideAuthModal();
+    showToast('Continuing as guest', 'info');
+}
+
+function handleAuthSuccess(data) {
+    localStorage.setItem('token', data.access_token);
+    currentUser = data.user || { name: 'User', email: data.email };
+    if (currentUser.name) localStorage.setItem('userName', currentUser.name);
+    if (currentUser.email) localStorage.setItem('userEmail', currentUser.email);
+    hideAuthModal();
+    updateUserUI();
+    loadSettingsProfile();
+    showToast('Welcome back!', 'success');
+}
+
+function showAuthError(msg) {
+    const err = document.getElementById('auth-error');
+    err.textContent = msg;
+    err.classList.remove('hidden');
+    setTimeout(() => err.classList.add('hidden'), 5000);
+}
+
+// ── Navigation ──────────────────────────────────────────────────────────────
+function navigateTo(section) {
+    const isLoggedIn = !!localStorage.getItem('token') && localStorage.getItem('token') !== 'demo-token';
+    const hasApiKey = !!localStorage.getItem('aiApiKey');
+
+    // Block all sections except dashboard and settings if not logged in or no API key
+    if (section !== 'dashboard' && section !== 'settings') {
+        if (!isLoggedIn) {
+            showAuthModal('Please login to access this feature');
+            return;
+        }
+        if (!hasApiKey) {
+            showToast('Please set your API key in Settings first', 'error');
+            navigateTo('settings');
+            return;
+        }
+    }
+
+    // Settings only accessible when logged in
+    if (section === 'settings' && !isLoggedIn) {
+        showAuthModal('Please login to access Settings');
+        return;
+    }
+
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+    const target = document.getElementById(`section-${section}`);
+    if (target) target.classList.add('active');
+    const navLink = document.querySelector(`.nav-link[data-section="${section}"]`);
+    if (navLink) navLink.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const navCenter = document.querySelector('.nav-center');
+    if (navCenter) navCenter.classList.remove('open');
+    const hamburger = document.getElementById('hamburger-btn');
+    if (hamburger) hamburger.classList.remove('active');
+}
+
+// ── Auth ────────────────────────────────────────────────────────────────────
+function initAuth() {
+    // Eye toggle for password fields
+    document.querySelectorAll('.auth-pw-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = document.getElementById(btn.dataset.target);
+            if (target.type === 'password') {
+                target.type = 'text';
+                btn.innerHTML = '<i class="fas fa-eye-slash"></i>';
+            } else {
+                target.type = 'password';
+                btn.innerHTML = '<i class="fas fa-eye"></i>';
             }
-        } else if (status === 'Done') {
-            card.classList.add('agent-complete');
-            if (statusEl) {
-                statusEl.innerHTML = 'Complete ✅';
-                statusEl.className = 'agent-status mt-1 text-xs text-green-400 font-medium';
+        });
+    });
+
+    // Add has-toggle class to password inputs
+    document.querySelectorAll('.auth-pw-toggle').forEach(btn => {
+        const target = document.getElementById(btn.dataset.target);
+        if (target) target.classList.add('has-toggle');
+    });
+
+    // Password strength and requirements validation
+    const regPassword = document.getElementById('reg-password');
+    const confirmPw = document.getElementById('reg-confirm-password');
+    const strengthFill = document.getElementById('pw-strength-fill');
+    const strengthText = document.getElementById('pw-strength-text');
+    const pwMatch = document.getElementById('pw-match');
+
+    regPassword.addEventListener('input', () => {
+        const val = regPassword.value;
+        let strength = 0;
+        const reqs = {
+            length: val.length >= 8,
+            upper: /[A-Z]/.test(val),
+            number: /[0-9]/.test(val),
+            symbol: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(val)
+        };
+
+        // Update requirement indicators
+        Object.keys(reqs).forEach(key => {
+            const el = document.getElementById(`pw-req-${key}`);
+            if (el) {
+                if (reqs[key]) {
+                    el.classList.add('met');
+                    el.innerHTML = '<i class="fas fa-check-circle"></i> ' + el.textContent.replace(/[^\w\s+]/g, '').trim();
+                } else {
+                    el.classList.remove('met');
+                    el.innerHTML = '<i class="fas fa-circle"></i> ' + el.textContent.replace(/[^\w\s+]/g, '').trim();
+                }
             }
+        });
+
+        // Calculate strength
+        if (reqs.length) strength++;
+        if (reqs.upper) strength++;
+        if (reqs.number) strength++;
+        if (reqs.symbol) strength++;
+
+        // Update strength bar
+        const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3ecf8e'];
+        const labels = ['Weak', 'Fair', 'Good', 'Strong', 'Very Strong'];
+        strengthFill.style.width = (strength * 25) + '%';
+        strengthFill.style.background = colors[strength] || colors[0];
+        strengthText.textContent = strength > 0 ? labels[strength - 1] : '';
+        strengthText.style.color = colors[strength] || 'var(--text-muted)';
+    });
+
+    // Confirm password match
+    confirmPw.addEventListener('input', () => {
+        if (confirmPw.value === regPassword.value && confirmPw.value.length > 0) {
+            pwMatch.textContent = '✓ Passwords match';
+            pwMatch.style.color = 'var(--accent-primary)';
+        } else if (confirmPw.value.length > 0) {
+            pwMatch.textContent = '✗ Passwords do not match';
+            pwMatch.style.color = '#ef4444';
         } else {
-            card.classList.add('opacity-40');
-            if (statusEl) {
-                statusEl.textContent = 'Waiting';
-                statusEl.className = 'agent-status mt-1 text-xs text-gray-500';
+            pwMatch.textContent = '';
+        }
+    });
+
+    // Gmail validation
+    const regEmail = document.getElementById('reg-email');
+    regEmail.addEventListener('input', () => {
+        const email = regEmail.value;
+        if (email && !email.endsWith('@gmail.com')) {
+            regEmail.setCustomValidity('Only Gmail addresses are accepted');
+        } else {
+            regEmail.setCustomValidity('');
+        }
+    });
+
+    document.querySelectorAll('.auth-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const form = tab.dataset.tab;
+            document.getElementById('login-form').classList.toggle('hidden', form !== 'login');
+            document.getElementById('register-form').classList.toggle('hidden', form !== 'register');
+        });
+    });
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        try {
+            const data = await fetch(`${API_BASE}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+            }).then(r => r.json());
+            if (data.access_token) {
+                handleAuthSuccess(data);
+            } else {
+                showAuthError(data.detail || 'Login failed');
             }
+        } catch (err) {
+            showAuthError(err.message);
+        }
+    });
+
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('reg-name').value;
+        const email = document.getElementById('reg-email').value;
+        const password = document.getElementById('reg-password').value;
+        try {
+            const data = await fetch(`${API_BASE}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password, name }),
+            }).then(r => r.json());
+            if (data.access_token) {
+                handleAuthSuccess(data);
+            } else {
+                showAuthError(data.detail || 'Registration failed');
+            }
+        } catch (err) {
+            showAuthError(err.message);
         }
     });
 }
 
-// ============================================
-// File Upload Handling
-// ============================================
-document.addEventListener('DOMContentLoaded', () => {
-    createParticles();
+// ── Settings ────────────────────────────────────────────────────────────────
+function loadSettingsProfile() {
+    const name = localStorage.getItem('userName') || '';
+    const email = localStorage.getItem('userEmail') || '';
+    const nameInput = document.getElementById('settings-name');
+    const emailInput = document.getElementById('settings-email');
+    if (nameInput) nameInput.value = name;
+    if (emailInput) emailInput.value = email;
+    const initial = document.getElementById('settings-initial');
+    if (initial && name) initial.textContent = name.charAt(0).toUpperCase();
+}
 
-    const dropZone = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('file-input');
+function initSettings() {
+    loadSettingsProfile();
 
-    // Click to upload
-    dropZone.addEventListener('click', () => fileInput.click());
+    // Theme toggle
+    document.querySelectorAll('.settings-theme-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.settings-theme-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            if (btn.dataset.theme === 'light') {
+                document.body.classList.add('light-theme');
+            } else {
+                document.body.classList.remove('light-theme');
+            }
+            localStorage.setItem('theme', btn.dataset.theme);
+        });
+    });
 
-    fileInput.addEventListener('change', (e) => {
+    // Load saved theme
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-theme');
+        document.getElementById('theme-light').classList.add('active');
+        document.getElementById('theme-dark').classList.remove('active');
+    }
+
+    // Profile save
+    document.getElementById('settings-save-profile').addEventListener('click', () => {
+        const name = document.getElementById('settings-name').value;
+        if (name) {
+            localStorage.setItem('userName', name);
+            updateUserUI();
+            showToast('Profile saved', 'success');
+        }
+    });
+
+    // Avatar upload
+    const avatarWrap = document.getElementById('settings-avatar-wrap');
+    const avatarInput = document.getElementById('settings-avatar-input');
+    avatarWrap.addEventListener('click', () => avatarInput.click());
+    avatarInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
-        if (file) handleFile(file);
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                avatarWrap.innerHTML = `<img src="${ev.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"><div class="settings-avatar-lg-overlay"><i class="fas fa-camera"></i></div>`;
+                localStorage.setItem('userAvatar', ev.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
     });
 
-    // Drag and drop
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('dragover');
+    // Model save
+    document.getElementById('settings-save-model').addEventListener('click', () => {
+        const provider = document.getElementById('settings-provider').value;
+        const model = document.getElementById('settings-model').value;
+        const apiKey = document.getElementById('settings-api-key').value;
+        localStorage.setItem('aiProvider', provider);
+        localStorage.setItem('aiModel', model);
+        if (apiKey) localStorage.setItem('aiApiKey', apiKey);
+        showToast('Model settings saved', 'success');
     });
 
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.classList.remove('dragover');
+    // Logout
+    document.getElementById('settings-logout').addEventListener('click', () => {
+        localStorage.removeItem('token');
+        currentUser = null;
+        showAuthModal();
+        showToast('Signed out', 'info');
     });
 
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-        const file = e.dataTransfer.files[0];
-        if (file) handleFile(file);
-    });
-});
-
-function handleFile(file) {
-    if (!file.type.includes('pdf')) {
-        showToast('Please upload a PDF file', 'error');
-        return;
+    // Load saved avatar
+    const savedAvatar = localStorage.getItem('userAvatar');
+    if (savedAvatar) {
+        document.getElementById('settings-avatar-wrap').innerHTML = `<img src="${savedAvatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"><div class="settings-avatar-lg-overlay"><i class="fas fa-camera"></i></div>`;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-        showToast('File size must be less than 10MB', 'error');
-        return;
+    // Load saved model
+    const savedProvider = localStorage.getItem('aiProvider');
+    if (savedProvider) document.getElementById('settings-provider').value = savedProvider;
+    const savedModel = localStorage.getItem('aiModel');
+    if (savedModel) document.getElementById('settings-model').value = savedModel;
+    const savedApiKey = localStorage.getItem('aiApiKey');
+    if (savedApiKey) document.getElementById('settings-api-key').value = savedApiKey;
+
+    // Provider change updates models
+    document.getElementById('settings-provider').addEventListener('change', (e) => {
+        const models = {
+            gemini: [['gemini/gemini-2.5-flash', 'Gemini 2.5 Flash'], ['gemini/gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite']],
+            openai: [['openai/gpt-4o-mini', 'GPT-4o Mini'], ['openai/gpt-4o', 'GPT-4o']],
+            groq: [['groq/llama-3.3-70b-versatile', 'Llama 3.3 70B']],
+            deepseek: [['deepseek/deepseek-chat', 'DeepSeek V3']],
+            qwen: [['qwen/qwen-turbo', 'Qwen Turbo']],
+        };
+        const modelSelect = document.getElementById('settings-model');
+        modelSelect.innerHTML = (models[e.target.value] || []).map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+    });
+}
+
+function updateUserUI() {
+    const name = localStorage.getItem('userName') || 'User';
+    const initial = name.charAt(0).toUpperCase();
+    const initial2 = name.split(' ').length > 1 ? name.split(' ')[1].charAt(0).toUpperCase() : name.charAt(1).toUpperCase() || '';
+    const initials = initial + initial2;
+    const avatar = localStorage.getItem('userAvatar');
+    const isLoggedIn = !!localStorage.getItem('token') && localStorage.getItem('token') !== 'demo-token';
+    const hasApiKey = !!localStorage.getItem('aiApiKey');
+
+    // Update nav user display
+    const navGuest = document.getElementById('nav-guest');
+    const navUser = document.getElementById('nav-user');
+    if (isLoggedIn) {
+        navGuest.classList.add('hidden');
+        navUser.classList.remove('hidden');
+        if (avatar) {
+            document.getElementById('nav-avatar').innerHTML = `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+        } else {
+            document.getElementById('nav-avatar').innerHTML = `<span>${initials}</span>`;
+        }
+    } else {
+        navGuest.classList.remove('hidden');
+        navUser.classList.add('hidden');
     }
 
-    // Show file info with animation
-    document.getElementById('file-name').textContent = file.name;
-    const fileInfo = document.getElementById('file-info');
-    fileInfo.classList.remove('hidden');
-    fileInfo.style.animation = 'messageIn 0.4s ease-out';
+    // Update settings page elements
+    const settingsInitial = document.getElementById('settings-initial');
+    const settingsName = document.getElementById('settings-name');
+    if (settingsInitial) settingsInitial.textContent = initials;
+    if (settingsName) settingsName.value = name;
 
-    // Upload the file
-    uploadResume(file);
+    // If no API key and logged in, show warning toast
+    if (isLoggedIn && !hasApiKey) {
+        // Don't spam toast, only on specific actions
+    }
+}
+
+// ── Navigation Links ────────────────────────────────────────────────────────
+function initNavigation() {
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', () => navigateTo(link.dataset.section));
+    });
+
+    const hamburger = document.getElementById('hamburger-btn');
+    hamburger.addEventListener('click', () => {
+        hamburger.classList.toggle('active');
+        document.querySelector('.nav-center').classList.toggle('open');
+    });
+}
+
+// ── Resume ──────────────────────────────────────────────────────────────────
+function initResume() {
+    const zone = document.getElementById('upload-zone');
+    const input = document.getElementById('resume-file-input');
+    const btn = document.getElementById('upload-btn');
+
+    btn.addEventListener('click', (e) => { e.stopPropagation(); input.click(); });
+    zone.addEventListener('click', () => input.click());
+
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        if (e.dataTransfer.files.length) uploadResume(e.dataTransfer.files[0]);
+    });
+
+    input.addEventListener('change', (e) => {
+        if (e.target.files.length) uploadResume(e.target.files[0]);
+    });
+
+    document.getElementById('analyze-ats-btn').addEventListener('click', analyzeATS);
+    document.getElementById('delete-resume-btn').addEventListener('click', deleteResume);
 }
 
 async function uploadResume(file) {
-    isUploading = true;
-    showToast('Uploading resume...', 'info');
-
-    const formData = new FormData();
-    formData.append('file', file);
-
+    if (file.type !== 'application/pdf') {
+        showToast('Please upload a PDF file', 'error');
+        return;
+    }
+    showLoading('Uploading resume...');
     try {
-        const response = await fetch(`${API_BASE}/api/upload-resume`, {
+        const formData = new FormData();
+        formData.append('file', file);
+        const data = await fetch(`${API_BASE}/resumes`, {
             method: 'POST',
-            body: formData
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            resumeUploaded = true;
-            showToast('Resume uploaded successfully!', 'success');
-
-            // Show preview with formatting
-            document.getElementById('resume-preview').innerHTML = `
-                <div class="space-y-3 animate-messageIn">
-                    <div class="flex items-center gap-3 pb-3 border-b border-white/10">
-                        <div class="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-                            <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                            </svg>
-                        </div>
-                        <div>
-                            <p class="text-white font-medium">${escapeHtml(file.name)}</p>
-                            <p class="text-xs text-gray-500">${(file.size / 1024).toFixed(2)} KB</p>
-                        </div>
-                    </div>
-                    <div>
-                        <p class="text-xs text-gray-500 mb-2 uppercase tracking-wide">Preview</p>
-                        <p class="text-gray-300 text-sm leading-relaxed">${data.preview || 'Preview not available'}</p>
-                    </div>
-                </div>
-            `;
-
-            // Enable generate button with visual feedback
-            const btn = document.getElementById('generate-btn');
-            btn.disabled = false;
-            btn.classList.add('ring-2', 'ring-primary/50');
-        } else {
-            showToast(data.detail || 'Upload failed', 'error');
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+            body: formData,
+        }).then(r => r.json());
+        hideLoading();
+        if (data.error) {
+            showToast(data.error, 'error');
+            return;
         }
-    } catch (error) {
-        console.error('Upload error:', error);
-        showToast('Failed to upload resume. Is the server running?', 'error');
-    } finally {
-        isUploading = false;
+        resumeData = data;
+        document.getElementById('upload-zone').classList.add('hidden');
+        document.getElementById('resume-card').classList.remove('hidden');
+        document.getElementById('resume-filename').textContent = file.name;
+        document.getElementById('resume-words').textContent = data.word_count || '—';
+        document.getElementById('resume-sections').textContent = data.sections_found || '—';
+        document.getElementById('resume-ats-score').textContent = data.ats_score ? `${data.ats_score}%` : '—';
+        document.getElementById('resume-profile').textContent = data.summary || '';
+        showToast('Resume uploaded successfully', 'success');
+        updateDashboardProgress();
+    } catch (err) {
+        hideLoading();
+        showToast('Upload failed: ' + err.message, 'error');
     }
 }
 
-// ============================================
-// Generate Career Plan - Enhanced
-// ============================================
+async function analyzeATS() {
+    if (!resumeData) return showToast('Upload a resume first', 'error');
+    showLoading('Analyzing ATS score...');
+    try {
+        // ATS analysis requires a job_id — disabled until job matching is wired up
+        showToast('Select a job first to run ATS analysis', 'info');
+        hideLoading();
+        return;
+    } catch (err) {
+        hideLoading();
+        showToast('Analysis failed', 'error');
+    }
+}
+
+function deleteResume() {
+    resumeData = null;
+    document.getElementById('upload-zone').classList.remove('hidden');
+    document.getElementById('resume-card').classList.add('hidden');
+    showToast('Resume removed', 'info');
+}
+
+// ── Jobs ────────────────────────────────────────────────────────────────────
+function initJobs() {
+    document.getElementById('search-jobs-btn').addEventListener('click', searchJobs);
+}
+
+async function searchJobs() {
+    const keywords = document.getElementById('job-keywords').value;
+    const location = document.getElementById('job-location').value;
+    showLoading('Searching jobs...');
+    try {
+        const params = new URLSearchParams();
+        if (keywords) params.set('keywords', keywords);
+        if (location) params.set('location', location);
+        const data = await fetch(`${API_BASE}/jobs/search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+            body: JSON.stringify({ target_role: keywords || 'Software Engineer', keywords }),
+        }).then(r => r.json());
+        hideLoading();
+        jobsData = data.jobs || data || [];
+        renderJobs();
+        showToast(`Found ${jobsData.length} jobs`, 'success');
+    } catch (err) {
+        hideLoading();
+        showToast('Search failed', 'error');
+    }
+}
+
+function quickJobSearch(term) {
+    document.getElementById('job-keywords').value = term;
+    searchJobs();
+}
+
+function renderJobs() {
+    const list = document.getElementById('jobs-list');
+    const empty = document.getElementById('jobs-empty');
+    if (!jobsData.length) {
+        list.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+    }
+    empty.classList.add('hidden');
+    list.innerHTML = jobsData.map((job, i) => `
+        <div class="job-card glass-card">
+            <div class="job-icon"><i class="fas fa-briefcase"></i></div>
+            <div class="job-body">
+                <div class="job-title">${job.title || 'Untitled'}</div>
+                <div class="job-company">${job.company || 'Unknown'}</div>
+                <div class="job-meta">
+                    ${job.location ? `<span><i class="fas fa-map-marker-alt"></i> ${job.location}</span>` : ''}
+                    ${job.type ? `<span><i class="fas fa-clock"></i> ${job.type}</span>` : ''}
+                </div>
+            </div>
+            <div class="job-actions">
+                <button class="btn btn-primary btn-sm" onclick="analyzeJob(${i})"><i class="fas fa-clipboard-check"></i> ATS</button>
+                <button class="btn btn-ghost btn-sm" onclick="trackJob(${i})"><i class="fas fa-plus"></i> Track</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function analyzeJob(index) {
+    showToast('Analyzing job match...', 'info');
+}
+
+function trackJob(index) {
+    showToast('Job added to tracker', 'success');
+}
+
+// ── Career Plan ─────────────────────────────────────────────────────────────
+function initCareer() {
+    document.getElementById('generate-plan-btn').addEventListener('click', generateCareerPlan);
+    document.getElementById('export-plan-btn').addEventListener('click', exportPlan);
+}
+
 async function generateCareerPlan() {
-    if (!resumeUploaded) {
-        showToast('Please upload a resume first', 'error');
-        return;
-    }
-
-    const btn = document.getElementById('generate-btn');
-    const loadingState = document.getElementById('loading-state');
-    const resultsContainer = document.getElementById('results-container');
-    const loadingText = document.getElementById('loading-text');
-    const loadingBar = document.getElementById('loading-bar');
-    const loadingPercent = document.getElementById('loading-percent');
-    const agentsStatus = document.getElementById('agents-status');
-
-    btn.disabled = true;
-    loadingState.classList.remove('hidden');
-    resultsContainer.classList.add('hidden');
-    agentsStatus.classList.remove('hidden');
-
-    const loadingMessages = [
-        'Analyzing your resume...',
-        'Scraping job listings from multiple sources...',
-        'Running ATS compatibility analysis...',
-        'Generating personalized career plan...',
-        'Finalizing recommendations...'
-    ];
-
-    let messageIndex = 0;
-    let percent = 0;
-
-    const messageInterval = setInterval(() => {
-        if (messageIndex < loadingMessages.length) {
-            loadingText.textContent = loadingMessages[messageIndex];
-            percent = Math.round(((messageIndex + 1) / loadingMessages.length) * 100);
-            loadingBar.style.width = `${percent}%`;
-            loadingPercent.textContent = `${percent}%`;
-
-            // Update agent status based on phase
-            updateAgentStatus(messageIndex);
-
-            messageIndex++;
-        }
-    }, 1500);
-
+    if (!resumeData) return showToast('Upload a resume first', 'error');
+    showLoading('Generating career plan...');
     try {
-        const response = await fetch(`${API_BASE}/api/run-crew`, {
+        const data = await fetch(`${API_BASE}/career/plan`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                user_query: 'What are the best job matches for me based on my resume?',
-                websites: 'https://www.workingnamads.com/jobs\nhttps://www.flexjobs.com/remote-jobs#remote-jobs-list'
-            })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            currentJobId = data.job_id;
-            showToast('Career plan generation started!', 'success');
-
-            // Poll for status
-            pollStatus(currentJobId);
-        } else {
-            showToast(data.detail || 'Failed to start generation', 'error');
-            loadingState.classList.add('hidden');
-            agentsStatus.classList.add('hidden');
-            btn.disabled = false;
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        showToast('Failed to connect to server', 'error');
-        loadingState.classList.add('hidden');
-        agentsStatus.classList.add('hidden');
-        btn.disabled = false;
-    } finally {
-        clearInterval(messageInterval);
-    }
-}
-
-async function pollStatus(jobId) {
-    const loadingText = document.getElementById('loading-text');
-
-    const poll = async () => {
-        try {
-            const response = await fetch(`${API_BASE}/api/status/${jobId}`);
-            const data = await response.json();
-
-            if (data.status === 'done') {
-                document.getElementById('loading-state').classList.add('hidden');
-                document.getElementById('agents-status').classList.add('hidden');
-                document.getElementById('results-container').classList.remove('hidden');
-                document.getElementById('generate-btn').disabled = false;
-                showToast('Career plan generated successfully!', 'success');
-
-                // Display results with Markdown rendering
-                displayResults(data.result);
-
-                // Auto-fetch jobs
-                setTimeout(fetchJobs, 500);
-            } else if (data.status === 'failed') {
-                document.getElementById('loading-state').classList.add('hidden');
-                document.getElementById('agents-status').classList.add('hidden');
-                document.getElementById('generate-btn').disabled = false;
-                showToast(`Generation failed: ${data.error}`, 'error');
-            } else {
-                loadingText.textContent = 'Still processing... This may take a few minutes';
-                setTimeout(poll, 3000);
-            }
-        } catch (error) {
-            console.error('Poll error:', error);
-            setTimeout(poll, 3000);
-        }
-    };
-
-    poll();
-}
-
-function displayResults(result) {
-    const careerPlanOutput = document.getElementById('career-plan-output');
-    const rawMarkdown = result && result.raw ? result.raw : (typeof result === 'string' ? result : '');
-
-    if (rawMarkdown) {
-        if (typeof marked !== 'undefined') {
-            careerPlanOutput.innerHTML = `<div class="markdown-body">${marked.parse(rawMarkdown)}</div>`;
-        } else {
-            careerPlanOutput.textContent = rawMarkdown;
-        }
-    } else {
-        careerPlanOutput.innerHTML = `
-            <div class="flex items-center gap-3 text-gray-500">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                Plan data available in raw format
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+            body: JSON.stringify({ resume_id: resumeData.resume_id }),
+        }).then(r => r.json());
+        hideLoading();
+        careerPlan = data;
+        const result = document.getElementById('career-plan-result');
+        result.classList.remove('hidden');
+        result.innerHTML = `
+            <div class="glass-card">
+                <h3 style="margin-bottom:16px"><i class="fas fa-route" style="color:var(--accent-primary)"></i> Your Career Plan</h3>
+                <div style="white-space:pre-wrap;line-height:1.8;color:var(--text-secondary);font-size:0.9rem">${data.plan || data.content || JSON.stringify(data, null, 2)}</div>
             </div>
         `;
+        document.getElementById('export-plan-btn').style.display = 'inline-flex';
+        showToast('Career plan generated', 'success');
+        updateDashboardProgress();
+    } catch (err) {
+        hideLoading();
+        showToast('Generation failed', 'error');
     }
 }
 
-// ============================================
-// Fetch Jobs - Enhanced
-// ============================================
-async function fetchJobs() {
-    const btn = document.getElementById('fetch-jobs-btn');
-    const container = document.getElementById('jobs-container');
-    const emptyState = document.getElementById('jobs-empty');
+function exportPlan() {
+    if (!careerPlan) return;
+    const text = careerPlan.plan || careerPlan.content || JSON.stringify(careerPlan, null, 2);
+    const blob = new Blob([text], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'career-plan.txt';
+    a.click();
+    showToast('Plan exported', 'success');
+}
 
-    btn.disabled = true;
-    btn.innerHTML = '<span class="flex items-center gap-2"><span class="spinner"></span> Fetching...</span>';
+// ── Interview ───────────────────────────────────────────────────────────────
+function initInterview() {
+    document.getElementById('start-interview-btn').addEventListener('click', startInterview);
+}
 
+async function startInterview() {
+    showLoading('Preparing questions...');
     try {
-        const response = await fetch(`${API_BASE}/api/jobs`);
-        const data = await response.json();
-
-        if (response.ok) {
-            emptyState.classList.add('hidden');
-            container.classList.remove('hidden');
-
-            // 1. Try to get jobs from the structured 'jobs' object
-            let jobsList = [];
-            if (data.jobs) {
-                const source = data.jobs.top_jobs || (Array.isArray(data.jobs) ? data.jobs : []);
-                jobsList = source.map(j => ({
-                    title: j.job_title || j.title || 'Job Position',
-                    company: j.company || 'Company',
-                    link: j.link || '#',
-                    ats_score: j.ats_score || 0,
-                    reasoning: j.match_reasoning || j.reasoning || '',
-                    location: j.location || 'Remote'
-                }));
-            }
-
-            // 2. If no structured jobs, try parsing from markdown
-            if (jobsList.length === 0 && data.raw_markdown) {
-                jobsList = parseJobsFromMarkdown(data.raw_markdown);
-            }
-
-            // 3. Display the results
-            if (jobsList.length > 0) {
-                displayJobs(jobsList, container);
-                showToast(`Found ${jobsList.length} job matches!`, 'success');
-            } else {
-                container.innerHTML = `
-                    <div class="col-span-full text-center py-12">
-                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-                            <span class="text-2xl">📭</span>
-                        </div>
-                        <p class="text-gray-400">No jobs found. Try running the career plan again.</p>
-                    </div>
-                `;
-                showToast('Found 0 job matches', 'info');
-            }
-        } else {
-            showToast(data.detail || 'Failed to fetch jobs', 'error');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        showToast('Failed to fetch jobs', 'error');
-        container.innerHTML = `
-            <div class="col-span-full text-center py-12">
-                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center">
-                    <span class="text-2xl">⚠️</span>
-                </div>
-                <p class="text-gray-400">Failed to connect to server</p>
-            </div>
-        `;
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = `
-            <span class="flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                </svg>
-                Fetch Jobs
-            </span>
-        `;
-    }
-}
-
-function parseJobsFromMarkdown(markdown) {
-    const jobs = [];
-    if (!markdown) return jobs;
-    
-    const lines = markdown.split('\n');
-    let currentJob = null;
-
-    for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-
-        // Pattern 1: **Title** at Company
-        // Pattern 2: **Title (Company)**:
-        // Pattern 3: **Title** - Company
-        const patterns = [
-            /\*\*(.+?)\*\*\s+at\s+(.+)/,
-            /\d+\.\s+\*\*(.+?)\s+\((.+?)\)\*\*/,
-            /\*\*(.+?)\*\*\s+-\s+(.+)/,
-            /\d+\.\s+\*\*(.+?)\*\*:\s+(.+)/
-        ];
-
-        let match = null;
-        for (const regex of patterns) {
-            match = trimmed.match(regex);
-            if (match) break;
-        }
-
-        if (match) {
-            if (currentJob) jobs.push(currentJob);
-            currentJob = {
-                title: match[1].trim(),
-                company: match[2].replace(':', '').trim(),
-                link: '#',
-                location: 'Remote'
-            };
-        } else if (currentJob) {
-            const lowerLine = trimmed.toLowerCase();
-            if (lowerLine.includes('link:') || lowerLine.includes('url:')) {
-                // Use substring to avoid breaking on the second colon in https://
-                const linkPart = trimmed.substring(trimmed.indexOf(':') + 1).trim();
-                currentJob.link = linkPart || '#';
-            } else if (trimmed.includes('http://') || trimmed.includes('https://')) {
-                // Raw link detection
-                const urlMatch = trimmed.match(/https?:\/\/[^\s)]+/);
-                if (urlMatch && currentJob.link === '#') {
-                    currentJob.link = urlMatch[0];
-                }
-            } else if (lowerLine.includes('reasoning:')) {
-                currentJob.reasoning = trimmed.substring(trimmed.indexOf(':') + 1).trim();
-            }
-        }
-    }
-
-    if (currentJob) jobs.push(currentJob);
-    return jobs.filter(j => j.title).slice(0, 10);
-}
-
-function displayJobs(jobs, container) {
-    if (jobs.length === 0) {
-        container.innerHTML = `
-            <div class="col-span-full text-center py-12">
-                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-                    <span class="text-2xl">🔍</span>
-                </div>
-                <p class="text-gray-400">No jobs found in the response</p>
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = jobs.map((job, index) => {
-        const matchScore = job.ats_score || (95 - index * 5);
-        const matchColor = matchScore >= 85 ? 'bg-green-500/20' :
-            matchScore >= 70 ? 'bg-yellow-500/20' :
-                'bg-orange-500/20';
-
-        return `
-            <div class="job-card group p-5 rounded-xl bg-card border border-white/5 hover:border-primary/50 cursor-pointer relative overflow-hidden" title="${escapeHtml(job.reasoning || '')}">
-                <div class="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-primary/10 to-transparent rounded-bl-full pointer-events-none"></div>
-
-                <div class="relative z-10">
-                    <div class="flex items-start justify-between mb-3">
-                        <div class="flex-1">
-                            <h4 class="font-semibold text-white group-hover:text-primary transition-colors">${escapeHtml(job.title) || 'Job Position'}</h4>
-                            <p class="text-sm text-gray-400">${escapeHtml(job.company) || 'Company'}</p>
-                        </div>
-                        <span class="px-2.5 py-1 text-xs font-bold rounded-full text-white ${matchColor} match-badge shadow-sm">
-                            ${matchScore}% Match
-                        </span>
-                    </div>
-
-                    ${job.location ? `
-                        <p class="text-xs text-gray-500 mb-3 flex items-center gap-1">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                            </svg>
-                            ${escapeHtml(job.location)}
-                        </p>
-                    ` : ''}
-
-                    <a href="${job.link || '#'}" target="_blank" class="inline-flex items-center gap-1.5 text-sm text-primary hover:text-secondary transition-colors font-medium">
-                        Apply Now
-                        <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                        </svg>
-                    </a>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-// ============================================
-// Chat Functionality - Enhanced
-// ============================================
-async function sendMessage(event) {
-    event.preventDefault();
-
-    const input = document.getElementById('chat-input');
-    const messagesContainer = document.getElementById('chat-messages');
-    const message = input.value.trim();
-
-    if (!message) return;
-
-    // Add user message
-    addChatMessage(message, 'user');
-    input.value = '';
-
-    // Show typing indicator
-    const typingId = showTypingIndicator();
-
-    // Scroll to bottom
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-    try {
-        const response = await fetch(`${API_BASE}/api/chat`, {
+        const resumeId = resumeData?.resume_id || resumeData?.version_id || '';
+        const data = await fetch(`${API_BASE}/interviews?resume_id=${resumeId}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ message })
-        });
-
-        const data = await response.json();
-
-        // Remove typing indicator
-        removeTypingIndicator(typingId);
-
-        if (response.ok) {
-            addChatMessage(data.reply, 'assistant');
-        } else {
-            showToast(data.detail || 'Failed to get response', 'error');
-            // Add error message to chat
-            addChatMessage("Sorry, I encountered an error. Please try again.", 'assistant', true);
-        }
-    } catch (error) {
-        console.error('Chat error:', error);
-        removeTypingIndicator(typingId);
-        showToast('Failed to connect to chat server', 'error');
-        addChatMessage("I'm having trouble connecting. Please check if the server is running.", 'assistant', true);
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        }).then(r => r.json());
+        hideLoading();
+        interviewQuestions = data.questions || data || [];
+        renderInterview();
+        showToast('Interview ready', 'success');
+    } catch (err) {
+        hideLoading();
+        showToast('Failed to start interview', 'error');
     }
 }
 
-function addChatMessage(content, role, isError = false) {
-    const container = document.getElementById('chat-messages');
-    const isUser = role === 'user';
-
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'chat-message flex items-start gap-3';
-
-    messageDiv.innerHTML = `
-        <div class="w-10 h-10 rounded-xl ${isUser ? 'bg-gray-600' : 'bg-gradient-to-br from-primary to-secondary'} flex items-center justify-center flex-shrink-0 shadow-lg ${isUser ? '' : 'shadow-primary/25'}">
-            <span class="text-lg">${isUser ? '👤' : '🤖'}</span>
+function renderInterview() {
+    const container = document.getElementById('interview-questions');
+    container.classList.remove('hidden');
+    container.innerHTML = interviewQuestions.map((q, i) => `
+        <div class="interview-question glass-card">
+            <h3>Question ${i + 1}</h3>
+            <div class="interview-q-text">${q.question || q}</div>
+            <textarea class="interview-textarea" id="interview-answer-${i}" placeholder="Type your answer..."></textarea>
+            <button class="btn btn-primary btn-sm" onclick="submitAnswer(${i})"><i class="fas fa-check"></i> Submit</button>
+            <div class="interview-feedback hidden" id="feedback-${i}"></div>
         </div>
-        <div class="flex-1 overflow-hidden">
-            <div class="${isUser ? 'bg-gradient-to-br from-primary/20 to-primary/10 rounded-tr-none' : isError ? 'bg-red-500/10 border-red-500/20' : 'bg-gradient-to-br from-white/5 to-white/10 border-white/5'} rounded-2xl ${isUser ? 'rounded-tl-none' : 'rounded-tl-none'} p-4 max-w-[95%] backdrop-blur-sm border ${isUser ? '' : 'border-white/5'}">
-                <div class="markdown-body text-sm leading-relaxed ${isError ? 'text-red-300' : ''}">
-                    ${isUser ? `<p>${escapeHtml(content)}</p>` : marked.parse(content)}
-                </div>
-            </div>
-        </div>
-    `;
-
-    container.appendChild(messageDiv);
-    container.scrollTop = container.scrollHeight;
+    `).join('');
 }
 
-function showTypingIndicator() {
-    const container = document.getElementById('chat-messages');
-    const id = 'typing-' + Date.now();
-
-    const typingDiv = document.createElement('div');
-    typingDiv.id = id;
-    typingDiv.className = 'chat-message flex items-start gap-3';
-    typingDiv.innerHTML = `
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary/25">
-            <span class="text-lg">🤖</span>
-        </div>
-        <div class="bg-white/5 rounded-2xl rounded-tl-none p-4 backdrop-blur-sm border border-white/5">
-            <div class="typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
-        </div>
-    `;
-
-    container.appendChild(typingDiv);
-    container.scrollTop = container.scrollHeight;
-
-    return id;
-}
-
-function removeTypingIndicator(id) {
-    const element = document.getElementById(id);
-    if (element) {
-        element.style.opacity = '0';
-        element.style.transform = 'translateY(10px)';
-        setTimeout(() => element.remove(), 200);
-    }
-}
-
-// ============================================
-// Clear Session
-// ============================================
-async function clearSession() {
-    if (!confirm('Are you sure you want to clear all data and start fresh?')) return;
-
+async function submitAnswer(index) {
+    const answer = document.getElementById(`interview-answer-${index}`).value;
+    if (!answer.trim()) return showToast('Type an answer first', 'error');
+    showLoading('Getting feedback...');
     try {
-        const response = await fetch(`${API_BASE}/api/session`, {
-            method: 'DELETE'
+        const data = await fetch(`${API_BASE}/interview/feedback`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+            body: JSON.stringify({ question: interviewQuestions[index]?.question || interviewQuestions[index], answer }),
+        }).then(r => r.json());
+        hideLoading();
+        const fb = document.getElementById(`feedback-${index}`);
+        fb.classList.remove('hidden');
+        fb.textContent = data.feedback || data.feedback_text || 'Good answer!';
+        showToast('Feedback received', 'success');
+    } catch (err) {
+        hideLoading();
+        showToast('Feedback failed', 'error');
+    }
+}
+
+// ── Cover Letter ────────────────────────────────────────────────────────────
+function initCoverLetter() {
+    document.querySelectorAll('.cl-tone-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.cl-tone-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
         });
-
-        if (response.ok) {
-            showToast('Session cleared', 'success');
-
-            // Reset UI with animations
-            document.getElementById('file-info').classList.add('hidden');
-            document.getElementById('resume-preview').innerHTML = '<p class="text-center text-gray-500">Upload a resume to see preview...</p>';
-            document.getElementById('results-container').classList.add('hidden');
-            document.getElementById('jobs-container').innerHTML = '';
-            document.getElementById('jobs-empty').classList.remove('hidden');
-            document.getElementById('generate-btn').disabled = true;
-            document.getElementById('agents-status').classList.add('hidden');
-
-            // Reset chat
-            const chatContainer = document.getElementById('chat-messages');
-            chatContainer.innerHTML = `
-                <div class="flex items-start gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary/25">
-                        <span class="text-lg">🤖</span>
-                    </div>
-                    <div class="flex-1">
-                        <div class="bg-gradient-to-br from-white/5 to-white/10 rounded-2xl rounded-tl-none p-4 max-w-[85%] backdrop-blur-sm border border-white/5">
-                            <p class="text-sm leading-relaxed">Hi! I'm your AI career coach. I've analyzed your resume and can help you with:</p>
-                            <ul class="text-sm mt-2 space-y-1 text-gray-300">
-                                <li class="flex items-center gap-2"><span class="text-primary">✓</span> Job search strategies</li>
-                                <li class="flex items-center gap-2"><span class="text-primary">✓</span> Resume optimization tips</li>
-                                <li class="flex items-center gap-2"><span class="text-primary">✓</span> Interview preparation</li>
-                                <li class="flex items-center gap-2"><span class="text-primary">✓</span> Career guidance</li>
-                            </ul>
-                            <p class="text-sm mt-3 text-gray-400">What would you like to know?</p>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            resumeUploaded = false;
-            currentJobId = null;
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        showToast('Failed to clear session', 'error');
-    }
-}
-
-// ============================================
-// Utility Functions
-// ============================================
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function parseMarkdown(text) {
-    if (!text) return '';
-    return text
-        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-        .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
-        .replace(/\*(.*)\*/gim, '<em>$1</em>')
-        .replace(/^- (.*$)/gim, '<li>$1</li>')
-        .replace(/\n/gim, '<br>');
-}
-
-// Health check on load
-async function checkHealth() {
-    try {
-        const response = await fetch(`${API_BASE}/api/health`);
-        const data = await response.json();
-
-        if (response.ok && data.status === 'ok') {
-            console.log('✓ API Health:', data);
-            if (data.resume_loaded) {
-                resumeUploaded = true;
-                document.getElementById('generate-btn').disabled = false;
-                showToast('Welcome back! Resume already loaded.', 'success');
-            } else {
-                showToast('Connected to CareerCopilot AI', 'success');
-            }
-        }
-    } catch (error) {
-        console.log('⚠ API not available - start the backend server');
-        showToast('Backend server not running. Start with: uv run uvicorn main:app', 'error');
-    }
-}
-
-// Smooth scroll for navigation
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-            target.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start'
-            });
-        }
     });
-});
 
-// Initialize
-createParticles();
-checkHealth();
+    document.getElementById('cl-generate-btn').addEventListener('click', generateCoverLetter);
+    document.getElementById('cl-copy-btn').addEventListener('click', copyCoverLetter);
+}
+
+async function generateCoverLetter() {
+    const company = document.getElementById('cl-company').value;
+    const role = document.getElementById('cl-role').value;
+    const tone = document.querySelector('.cl-tone-btn.active')?.dataset.tone || 'professional';
+
+    if (!company || !role) return showToast('Fill in company and role', 'error');
+    showLoading('Generating cover letter...');
+    try {
+        const resumeId = resumeData?.resume_id || resumeData?.version_id || '';
+        const data = await fetch(`${API_BASE}/cover-letters`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+            body: JSON.stringify({ resume_id: resumeId, company_name: company, job_title: role, tone }),
+        }).then(r => r.json());
+        hideLoading();
+        const content = data.cover_letter || data.content || data.text || '';
+        document.getElementById('cl-result').classList.remove('hidden');
+        document.getElementById('cl-result-content').textContent = content;
+        document.getElementById('cl-result-meta').textContent = `${company} — ${role} — ${tone}`;
+        clHistory.unshift({ company, role, tone, content, date: new Date() });
+        renderCLHistory();
+        showToast('Cover letter generated', 'success');
+    } catch (err) {
+        hideLoading();
+        showToast('Generation failed', 'error');
+    }
+}
+
+function copyCoverLetter() {
+    const text = document.getElementById('cl-result-content').textContent;
+    navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard', 'success'));
+}
+
+function renderCLHistory() {
+    const list = document.getElementById('cl-history-list');
+    list.innerHTML = clHistory.map((item, i) => `
+        <div class="cl-history-card glass-card" onclick="showCLHistory(${i})">
+            <div class="cl-history-icon"><i class="fas fa-pen-fancy"></i></div>
+            <div class="cl-history-body">
+                <div class="cl-history-name">${item.company} — ${item.role}</div>
+                <div class="cl-history-detail">${item.tone} • ${item.date.toLocaleDateString()}</div>
+            </div>
+            <i class="fas fa-chevron-right cl-history-arrow"></i>
+        </div>
+    `).join('');
+}
+
+function showCLHistory(index) {
+    const item = clHistory[index];
+    if (!item) return;
+    document.getElementById('cl-result').classList.remove('hidden');
+    document.getElementById('cl-result-content').textContent = item.content;
+    document.getElementById('cl-result-meta').textContent = `${item.company} — ${item.role} — ${item.tone}`;
+}
+
+// ── Chat ────────────────────────────────────────────────────────────────────
+function initChat() {
+    const fab = document.getElementById('chat-fab');
+    const widget = document.getElementById('chat-widget');
+    const closeBtn = document.getElementById('chat-widget-close');
+    const input = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-chat-btn');
+
+    fab.addEventListener('click', () => {
+        fab.classList.toggle('active');
+        widget.classList.toggle('open');
+    });
+
+    closeBtn.addEventListener('click', () => {
+        fab.classList.remove('active');
+        widget.classList.remove('open');
+    });
+
+    sendBtn.addEventListener('click', sendMessage);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+
+    input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 80) + 'px';
+    });
+}
+
+async function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    const messagesDiv = document.getElementById('chat-messages');
+    const welcome = messagesDiv.querySelector('.chat-welcome');
+    if (welcome) welcome.remove();
+
+    messagesDiv.innerHTML += `
+        <div class="chat-msg user">
+            <div class="chat-msg-avatar human"><i class="fas fa-user"></i></div>
+            <div class="chat-msg-bubble">${msg}</div>
+        </div>
+    `;
+
+    input.value = '';
+    input.style.height = 'auto';
+
+    const meta = document.getElementById('chat-meta');
+    meta.innerHTML = '<div class="typing-indicator"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+
+    try {
+        const data = await fetch(`${API_BASE}/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+            body: JSON.stringify({ message: msg }),
+        }).then(r => r.json());
+        meta.innerHTML = '';
+        const reply = data.reply || data.response || data.message || 'I could not process that request.';
+        messagesDiv.innerHTML += `
+            <div class="chat-msg assistant">
+                <div class="chat-msg-avatar ai"><i class="fas fa-robot"></i></div>
+                <div class="chat-msg-bubble">${reply}</div>
+            </div>
+        `;
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    } catch (err) {
+        meta.innerHTML = '';
+        messagesDiv.innerHTML += `
+            <div class="chat-msg assistant">
+                <div class="chat-msg-avatar ai"><i class="fas fa-robot"></i></div>
+                <div class="chat-msg-bubble" style="color:#ef4444">Connection error. Please try again.</div>
+            </div>
+        `;
+    }
+}
+
+// ── FAQ ─────────────────────────────────────────────────────────────────────
+function initFAQ() {
+    document.querySelectorAll('.cf-faq-question').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const item = btn.closest('.cf-faq-item');
+            item.classList.toggle('open');
+        });
+    });
+}
+
+// ── Dashboard Progress ──────────────────────────────────────────────────────
+function updateDashboardProgress() {
+    let progress = 0;
+    if (currentUser) progress += 25;
+    if (resumeData) progress += 25;
+    if (jobsData.length) progress += 25;
+    if (careerPlan) progress += 25;
+    document.getElementById('dash-progress-pct').textContent = `${progress}%`;
+    document.getElementById('dash-progress-fill').style.width = `${progress}%`;
+}
+
+// ── Page Loader ─────────────────────────────────────────────────────────────
+function initLoader() {
+    const loader = document.getElementById('page-loader');
+    setTimeout(() => loader.classList.add('hidden'), 1400);
+}
+
+// ── Init ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    initLoader();
+    initNavigation();
+    initAuth();
+    initSettings();
+    initResume();
+    initJobs();
+    initCareer();
+    initInterview();
+    initCoverLetter();
+    initChat();
+    initFAQ();
+    updateUserUI();
+
+    // Login button in nav
+    const navLoginBtn = document.getElementById('nav-login-btn');
+    if (navLoginBtn) {
+        navLoginBtn.addEventListener('click', () => showAuthModal());
+    }
+
+    // Settings toggle icon
+    const settingsToggle = document.getElementById('settings-toggle');
+    if (settingsToggle) {
+        settingsToggle.addEventListener('click', () => {
+            const isLoggedIn = !!localStorage.getItem('token') && localStorage.getItem('token') !== 'demo-token';
+            if (!isLoggedIn) {
+                showAuthModal('Please login to access Settings');
+                return;
+            }
+            navigateTo('settings');
+        });
+    }
+
+    const token = localStorage.getItem('token');
+    if (token) {
+        currentUser = true;
+        updateUserUI();
+    } else {
+        showAuthModal();
+    }
+});

@@ -1,573 +1,879 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CareerCopilot AI - Your AI Career Assistant</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="style.css">
+    <title>CareerCopilot AI — Your AI-Powered Career Command Center</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#6366f1',
-                        primaryDark: '#4f46e5',
-                        secondary: '#22d3ee',
-                        dark: '#0f0f23',
-                        card: '#1a1a2e',
-                        cardHover: '#252542'
-                    },
-                    animation: {
-                        'float': 'float 6s ease-in-out infinite',
-                        'float-delayed': 'float 6s ease-in-out 3s infinite',
-                        'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
-                        'shimmer': 'shimmer 3s linear infinite',
-                    }
-                }
-            }
-        }
-    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
 </head>
+<body>
+    <!-- Workflow Background -->
+    <canvas id="workflow-canvas" class="workflow-canvas"></canvas>
 
-<body class="bg-dark text-white min-h-screen relative overflow-x-hidden">
-    <!-- Animated Background -->
-    <div class="fixed inset-0 z-0 pointer-events-none">
-        <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-float"></div>
-        <div
-            class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-secondary/10 rounded-full blur-3xl animate-float-delayed">
-        </div>
-        <div class="absolute top-1/2 left-1/2 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl animate-float"></div>
-        <div id="particles-container" class="absolute inset-0"></div>
+    <!-- Ambient Background Blobs -->
+    <div class="ambient-bg">
+        <div class="ambient-blob"></div>
+        <div class="ambient-blob"></div>
+        <div class="ambient-blob"></div>
+        <div class="ambient-blob"></div>
     </div>
 
-    <!-- Toast Container -->
-    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+    <!-- Page Load Overlay -->
+    <div id="page-loader" class="page-loader">
+        <div class="page-loader-inner">
+            <div class="page-loader-logo">
+                <img src="logo.png" alt="CareerCopilot AI" class="logo-img-loader">
+                <span>CareerCopilot<span class="accent">AI</span></span>
+            </div>
+            <div class="page-loader-bar">
+                <div class="page-loader-fill"></div>
+            </div>
+        </div>
+    </div>
 
-    <!-- Navigation -->
-    <nav class="border-b border-white/10 backdrop-blur-xl bg-dark/70 sticky top-0 z-40 glass-effect">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <div class="flex items-center gap-3">
-                    <div
-                        class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/25 animate-pulse-glow">
-                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                    </div>
-                    <div>
-                        <span
-                            class="text-xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent bg-[length:200%_auto] animated-gradient">CareerCopilot
-                            AI</span>
-                        <span class="text-xs text-gray-500 hidden sm:block">Multi-Agent Career Assistant</span>
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="modal-overlay">
+        <div class="modal glass-card">
+            <div class="modal-header">
+                <div class="logo-large">
+                    <img src="logo.png" alt="CareerCopilot AI" class="logo-img-lg">
+                    <h1>CareerCopilot<span class="accent">AI</span></h1>
+                </div>
+                <p class="modal-subtitle">Your AI-powered career command center</p>
+            </div>
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Sign In</button>
+                <button class="auth-tab" data-tab="register">Sign Up</button>
+            </div>
+            <form id="login-form" class="auth-form">
+                <div class="form-group">
+                    <label for="login-email">Email</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="login-email" placeholder="you@example.com" required>
                     </div>
                 </div>
-                <div class="hidden md:flex items-center gap-6">
-                    <a href="#upload" class="text-gray-300 hover:text-white transition-colors relative group">
-                        Upload
-                        <span
-                            class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-secondary group-hover:w-full transition-all"></span>
-                    </a>
-                    <a href="#generate" class="text-gray-300 hover:text-white transition-colors relative group">
-                        Generate
-                        <span
-                            class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-secondary group-hover:w-full transition-all"></span>
-                    </a>
-                    <a href="#jobs" class="text-gray-300 hover:text-white transition-colors relative group">
-                        Jobs
-                        <span
-                            class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-secondary group-hover:w-full transition-all"></span>
-                    </a>
-                    <a href="#chat" class="text-gray-300 hover:text-white transition-colors relative group">
-                        Chat
-                        <span
-                            class="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-secondary group-hover:w-full transition-all"></span>
-                    </a>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="login-password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" required>
+                        <button type="button" class="auth-pw-toggle" data-target="login-password"><i class="fas fa-eye"></i></button>
+                    </div>
                 </div>
-                <button onclick="clearSession()"
-                    class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors hover:bg-white/5 rounded-lg">
-                    Reset
+                <button type="submit" class="btn btn-primary btn-full">
+                    <span>Sign In</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </form>
+            <form id="register-form" class="auth-form hidden">
+                <div class="form-group">
+                    <label for="reg-name">Full Name</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="reg-name" placeholder="John Doe" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="reg-email">Email <span style="color:var(--text-muted);font-size:0.7rem">(Gmail only)</span></label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="reg-email" placeholder="you@gmail.com" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="reg-password">Password</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="reg-password" placeholder="Min 8 chars, uppercase, number, symbol" required minlength="8">
+                        <button type="button" class="auth-pw-toggle" data-target="reg-password"><i class="fas fa-eye"></i></button>
+                    </div>
+                    <div class="pw-strength" id="pw-strength">
+                        <div class="pw-strength-bar"><div class="pw-strength-fill" id="pw-strength-fill"></div></div>
+                        <span class="pw-strength-text" id="pw-strength-text"></span>
+                    </div>
+                    <div class="pw-requirements" id="pw-requirements">
+                        <div class="pw-req" id="pw-req-length"><i class="fas fa-circle"></i> 8+ characters</div>
+                        <div class="pw-req" id="pw-req-upper"><i class="fas fa-circle"></i> Uppercase letter</div>
+                        <div class="pw-req" id="pw-req-number"><i class="fas fa-circle"></i> Number</div>
+                        <div class="pw-req" id="pw-req-symbol"><i class="fas fa-circle"></i> Symbol (!@#$...)</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="reg-confirm-password">Confirm Password</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="reg-confirm-password" placeholder="Re-enter password" required>
+                        <button type="button" class="auth-pw-toggle" data-target="reg-confirm-password"><i class="fas fa-eye"></i></button>
+                    </div>
+                    <div class="pw-match" id="pw-match"></div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">
+                    <span>Create Account</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </form>
+            <div id="auth-error" class="error-banner hidden"></div>
+            <div style="text-align:center;margin-top:16px">
+                <button class="btn btn-ghost btn-sm" onclick="skipAuth()" style="color:var(--text-muted);border:none;font-size:0.8rem">
+                    Skip for now →
                 </button>
             </div>
         </div>
-    </nav>
+    </div>
 
-    <!-- Hero Section -->
-    <section class="py-20 px-4 relative">
-        <div class="max-w-5xl mx-auto text-center">
-            <!-- Badge -->
-            <div
-                class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6 backdrop-blur-sm hover:bg-primary/15 transition-colors cursor-default">
-                <span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
-                <span class="text-sm text-secondary font-medium">AI-Powered Career Assistant</span>
-            </div>
-
-            <!-- Main Heading -->
-            <h1 class="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-                Land Your Dream Job with
-                <br />
-                <span
-                    class="bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent bg-[length:200%_auto] animated-gradient">AI
-                    Intelligence</span>
-            </h1>
-
-            <!-- Subtitle -->
-            <p class="text-lg md:text-xl text-gray-400 mb-10 max-w-3xl mx-auto leading-relaxed">
-                Multi-agent AI system powered by
-                <span class="text-primary font-semibold">CrewAI</span> that analyzes your resume,
-                discovers perfect job matches, and provides personalized career guidance.
-            </p>
-
-            <!-- CTA Buttons -->
-            <div class="flex flex-wrap justify-center gap-4 mb-12">
-                <a href="#upload"
-                    class="group px-8 py-4 bg-gradient-to-r from-primary to-primaryDark rounded-xl font-semibold hover:shadow-2xl hover:shadow-primary/30 transition-all transform hover:-translate-y-1 hover:scale-105 relative overflow-hidden">
-                    <span class="relative z-10 flex items-center gap-2">
-                        <svg class="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none"
-                            stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        Get Started
-                    </span>
-                    <div
-                        class="absolute inset-0 bg-gradient-to-r from-secondary to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    </div>
-                </a>
-                <a href="#how-it-works"
-                    class="group px-8 py-4 bg-card border border-white/10 rounded-xl font-semibold hover:bg-cardHover hover:border-primary/30 transition-all transform hover:-translate-y-1">
-                    <span class="flex items-center gap-2">
-                        <svg class="w-5 h-5 text-gray-400 group-hover:text-primary transition-colors" fill="none"
-                            stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        See How It Works
-                    </span>
-                </a>
-            </div>
-
-            <!-- Stats Bar -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
-                <div class="p-4 rounded-xl bg-card/50 border border-white/5 backdrop-blur-sm">
-                    <div class="text-3xl font-bold text-primary">3+</div>
-                    <div class="text-xs text-gray-500 mt-1">AI Agents</div>
-                </div>
-                <div class="p-4 rounded-xl bg-card/50 border border-white/5 backdrop-blur-sm">
-                    <div class="text-3xl font-bold text-secondary">100+</div>
-                    <div class="text-xs text-gray-500 mt-1">Jobs Analyzed</div>
-                </div>
-                <div class="p-4 rounded-xl bg-card/50 border border-white/5 backdrop-blur-sm">
-                    <div class="text-3xl font-bold text-purple-400">ATS</div>
-                    <div class="text-xs text-gray-500 mt-1">Smart Scoring</div>
-                </div>
-                <div class="p-4 rounded-xl bg-card/50 border border-white/5 backdrop-blur-sm">
-                    <div class="text-3xl font-bold text-green-400">24/7</div>
-                    <div class="text-xs text-gray-500 mt-1">Career Coach</div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- How It Works -->
-    <section id="how-it-works" class="py-20 px-4 border-t border-white/5">
-        <div class="max-w-6xl mx-auto">
-            <div class="text-center mb-12">
-                <h2 class="text-3xl md:text-4xl font-bold mb-4">
-                    <span class="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">How It
-                        Works</span>
-                </h2>
-                <p class="text-gray-400">Four simple steps to your dream job</p>
-            </div>
-
-            <div class="grid md:grid-cols-4 gap-6">
-                <!-- Step 1 -->
-                <div class="group relative">
-                    <div
-                        class="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity">
-                    </div>
-                    <div
-                        class="relative p-6 rounded-2xl bg-card border border-white/5 hover:border-primary/50 transition-all group h-full">
-                        <div class="flex items-center justify-between mb-4">
-                            <div
-                                class="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <span class="text-3xl">📄</span>
-                            </div>
-                            <span class="text-5xl font-bold text-white/5">01</span>
-                        </div>
-                        <h3 class="text-lg font-semibold mb-2 text-white group-hover:text-primary transition-colors">
-                            Upload Resume</h3>
-                        <p class="text-gray-400 text-sm leading-relaxed">Upload your PDF resume for comprehensive AI
-                            analysis</p>
+    <!-- Main App -->
+    <div id="app">
+        <!-- Top Navigation -->
+        <nav class="top-nav">
+            <div class="nav-container">
+                <div class="nav-left">
+                    <div class="logo-small">
+                        <img src="logo.png" alt="CareerCopilot AI" class="logo-img-sm">
+                        <span>CareerCopilot<span class="accent">AI</span></span>
                     </div>
                 </div>
-
-                <!-- Step 2 -->
-                <div class="group relative">
-                    <div
-                        class="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity">
-                    </div>
-                    <div
-                        class="relative p-6 rounded-2xl bg-card border border-white/5 hover:border-primary/50 transition-all group h-full">
-                        <div class="flex items-center justify-between mb-4">
-                            <div
-                                class="w-14 h-14 rounded-xl bg-gradient-to-br from-secondary/20 to-secondary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <span class="text-3xl">🤖</span>
-                            </div>
-                            <span class="text-5xl font-bold text-white/5">02</span>
-                        </div>
-                        <h3 class="text-lg font-semibold mb-2 text-white group-hover:text-secondary transition-colors">
-                            AI Analysis</h3>
-                        <p class="text-gray-400 text-sm leading-relaxed">Multi-agent CrewAI system evaluates your
-                            profile and skills</p>
+                <div class="nav-center">
+                    <div class="nav-links" id="nav-links">
+                        <button class="nav-link active" data-section="dashboard">Home</button>
+                        <button class="nav-link" data-section="resume">Resume</button>
+                        <button class="nav-link" data-section="jobs">Jobs</button>
+                        <button class="nav-link" data-section="career">Career</button>
+                        <button class="nav-link" data-section="interview">Interview</button>
+                        <button class="nav-link" data-section="cover-letter">Cover Letter</button>
                     </div>
                 </div>
-
-                <!-- Step 3 -->
-                <div class="group relative">
-                    <div
-                        class="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity">
-                    </div>
-                    <div
-                        class="relative p-6 rounded-2xl bg-card border border-white/5 hover:border-primary/50 transition-all group h-full">
-                        <div class="flex items-center justify-between mb-4">
-                            <div
-                                class="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <span class="text-3xl">💼</span>
-                            </div>
-                            <span class="text-5xl font-bold text-white/5">03</span>
-                        </div>
-                        <h3 class="text-lg font-semibold mb-2 text-white group-hover:text-purple-400 transition-colors">
-                            Job Matches</h3>
-                        <p class="text-gray-400 text-sm leading-relaxed">Discover curated job opportunities matched to
-                            your profile</p>
-                    </div>
-                </div>
-
-                <!-- Step 4 -->
-                <div class="group relative">
-                    <div
-                        class="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity">
-                    </div>
-                    <div
-                        class="relative p-6 rounded-2xl bg-card border border-white/5 hover:border-primary/50 transition-all group h-full">
-                        <div class="flex items-center justify-between mb-4">
-                            <div
-                                class="w-14 h-14 rounded-xl bg-gradient-to-br from-green-500/20 to-green-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <span class="text-3xl">📈</span>
-                            </div>
-                            <span class="text-5xl font-bold text-white/5">04</span>
-                        </div>
-                        <h3 class="text-lg font-semibold mb-2 text-white group-hover:text-green-400 transition-colors">
-                            Career Plan</h3>
-                        <p class="text-gray-400 text-sm leading-relaxed">Get personalized action steps and career
-                            guidance</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 py-16 space-y-16">
-
-        <!-- Upload Section -->
-        <section id="upload" class="scroll-mt-20">
-            <div class="flex items-center gap-3 mb-6">
-                <div
-                    class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                    <span class="text-lg">📄</span>
-                </div>
-                <h2 class="text-2xl font-bold">Upload Your Resume</h2>
-            </div>
-
-            <div class="grid lg:grid-cols-2 gap-8">
-                <div class="p-8 rounded-2xl bg-card border border-white/5">
-                    <div id="drop-zone"
-                        class="border-2 border-dashed border-white/10 rounded-xl p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                        <input type="file" id="file-input" accept=".pdf" class="hidden">
-                        <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/10 flex items-center justify-center">
-                            <svg class="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                            </svg>
-                        </div>
-                        <p class="text-lg font-medium mb-1">Drop your resume here</p>
-                        <p class="text-gray-400 text-sm mb-4">or click to browse</p>
-                        <p class="text-xs text-gray-500">PDF format, max 10MB</p>
-                    </div>
-
-                    <div id="file-info" class="hidden mt-4 p-4 rounded-xl bg-primary/10 border border-primary/20">
-                        <div class="flex items-center gap-3">
-                            <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <span id="file-name" class="text-sm font-medium"></span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="p-8 rounded-2xl bg-card border border-white/5">
-                    <h3 class="text-lg font-semibold mb-4">Resume Preview</h3>
-                    <div id="resume-preview"
-                        class="h-64 overflow-y-auto text-sm text-gray-400 bg-dark/50 rounded-xl p-4 border border-white/5">
-                        <p class="text-center">Upload a resume to see preview...</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Generate Plan Section -->
-        <section id="generate" class="scroll-mt-20">
-            <div class="flex items-center gap-3 mb-6">
-                <div
-                    class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/20">
-                    <span class="text-lg">✨</span>
-                </div>
-                <h2 class="text-2xl font-bold">Generate Career Plan</h2>
-            </div>
-
-            <div class="p-8 rounded-2xl bg-card border border-white/5 relative overflow-hidden">
-                <!-- Decorative glow -->
-                <div class="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none">
-                </div>
-
-                <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 relative z-10">
-                    <div>
-                        <h3 class="text-lg font-semibold">AI-Powered Analysis</h3>
-                        <p class="text-gray-400 text-sm">Our multi-agent system will analyze your resume and generate
-                            personalized recommendations</p>
-                    </div>
-                    <button id="generate-btn" onclick="generateCareerPlan()"
-                        class="group px-6 py-3 bg-gradient-to-r from-primary to-primaryDark rounded-xl font-semibold hover:shadow-2xl hover:shadow-primary/30 transition-all transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none relative overflow-hidden">
-                        <span class="flex items-center gap-2 relative z-10">
-                            <svg class="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none"
-                                stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                            Generate Plan
-                        </span>
-                        <div
-                            class="absolute inset-0 bg-gradient-to-r from-secondary to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        </div>
+                <div class="nav-right">
+                    <button class="hamburger-btn" id="hamburger-btn" aria-label="Menu">
+                        <span></span><span></span><span></span>
                     </button>
-                </div>
-
-                <!-- AI Agents Status -->
-                <div id="agents-status" class="mb-6 hidden">
-                    <div class="flex items-center gap-2 mb-3">
-                        <svg class="w-5 h-5 text-primary animate-spin" fill="none" stroke="currentColor"
-                            viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        <span class="text-sm font-medium text-gray-300">AI Agents Working</span>
+                    <div id="nav-guest" class="nav-guest">
+                        <button class="btn btn-primary btn-sm" id="nav-login-btn">
+                            <i class="fas fa-sign-in-alt"></i> Login
+                        </button>
                     </div>
-                    <div class="grid grid-cols-4 gap-3">
-                        <div class="agent-card p-3 rounded-xl bg-dark/50 border border-white/5 text-center">
-                            <div class="text-xl mb-1">🔍</div>
-                            <div class="text-xs text-gray-400">Job Hunter</div>
-                            <div class="agent-status mt-1 text-xs text-secondary">Active</div>
-                        </div>
-                        <div class="agent-card p-3 rounded-xl bg-dark/50 border border-white/5 text-center">
-                            <div class="text-xl mb-1">📊</div>
-                            <div class="text-xs text-gray-400">ATS Analyst</div>
-                            <div class="agent-status mt-1 text-xs text-gray-500">Waiting</div>
-                        </div>
-                        <div class="agent-card p-3 rounded-xl bg-dark/50 border border-white/5 text-center">
-                            <div class="text-xl mb-1">🎯</div>
-                            <div class="text-xs text-gray-400">Skill Analyzer</div>
-                            <div class="agent-status mt-1 text-xs text-gray-500">Waiting</div>
-                        </div>
-                        <div class="agent-card p-3 rounded-xl bg-dark/50 border border-white/5 text-center">
-                            <div class="text-xl mb-1">💡</div>
-                            <div class="text-xs text-gray-400">Career Coach</div>
-                            <div class="agent-status mt-1 text-xs text-gray-500">Waiting</div>
+                    <div id="nav-user" class="nav-user hidden">
+                        <button class="nav-settings-icon" id="settings-toggle" title="Settings">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        <div class="nav-user-avatar-wrap" id="user-menu">
+                            <div class="user-avatar" id="nav-avatar"><span id="user-initial">U</span></div>
                         </div>
                     </div>
                 </div>
+            </div>
+        </nav>
 
-                <!-- Loading State -->
-                <div id="loading-state" class="hidden">
-                    <div class="flex items-center gap-4 mb-4">
-                        <div class="relative">
-                            <div
-                                class="w-12 h-12 border-2 border-primary/30 border-t-primary rounded-full animate-spin">
-                            </div>
-                            <div class="absolute inset-0 flex items-center justify-center">
-                                <div class="w-6 h-6 bg-primary rounded-full animate-pulse"></div>
-                            </div>
+        <!-- Sections -->
+        <main class="main-content">
+            <!-- ══════════════════════════════════════════════════════════════════
+                 DASHBOARD — CareerFlow.ai-inspired Landing Page
+                 ══════════════════════════════════════════════════════════════════ -->
+            <section id="section-dashboard" class="section active">
+
+                <!-- Hero -->
+                <div class="cf-hero">
+                    <div class="cf-hero-badge">
+                        <i class="fas fa-bolt"></i>
+                        <span>Trusted by thousands of job seekers</span>
+                    </div>
+                    <h1 class="cf-hero-title">
+                        Land your <span class="cf-accent">dream job.</span><br>
+                        Without the stress.
+                    </h1>
+                    <p class="cf-hero-subtitle">
+                        Your AI-powered career command center — track progress, discover opportunities, and prepare with AI.
+                    </p>
+                    <div class="cf-hero-pills">
+                        <div class="cf-pill"><i class="fas fa-check"></i> AI Resume Builder</div>
+                        <div class="cf-pill"><i class="fas fa-check"></i> Automated Job Tracking</div>
+                        <div class="cf-pill"><i class="fas fa-check"></i> ATS Score Analysis</div>
+                        <div class="cf-pill"><i class="fas fa-check"></i> AI Interview Prep</div>
+                    </div>
+                    <div class="cf-hero-cta">
+                        <button class="btn btn-primary btn-lg" onclick="navigateTo('resume')">
+                            <i class="fas fa-rocket"></i> Get Started Free
+                        </button>
+                        <button class="btn btn-ghost btn-lg" onclick="navigateTo('jobs')">
+                            <i class="fas fa-search"></i> Browse Jobs
+                        </button>
+                    </div>
+                    <div class="cf-social-proof">
+                        <div class="cf-avatars">
+                            <div class="cf-avatar" style="background:#3ecf8e">AK</div>
+                            <div class="cf-avatar" style="background:#8b5cf6">MR</div>
+                            <div class="cf-avatar" style="background:#f59e0b">TS</div>
+                            <div class="cf-avatar" style="background:#22d3ee">LP</div>
                         </div>
-                        <div>
-                            <span class="text-lg font-medium block">AI agents are working...</span>
-                            <span class="text-sm text-gray-400" id="loading-text">Analyzing your resume...</span>
+                        <div class="cf-proof-text">
+                            <i class="fas fa-star"></i>
+                            <span>4.9/5 from 2,400+ users</span>
                         </div>
                     </div>
-                    <div class="bg-dark/50 rounded-xl p-4 space-y-3">
-                        <div class="flex items-center gap-3">
-                            <div class="w-2 h-2 rounded-full bg-secondary animate-pulse"></div>
-                            <span class="text-sm text-gray-400" id="loading-status-text">Initializing agents...</span>
-                        </div>
-                        <div class="relative h-3 bg-white/5 rounded-full overflow-hidden">
-                            <div
-                                class="absolute inset-0 bg-gradient-to-r from-primary/20 via-secondary/20 to-primary/20 animate-shimmer">
+                </div>
+
+                <!-- Logo Marquee -->
+                <div class="cf-logo-section">
+                    <div class="cf-logo-heading">Trusted by teams at</div>
+                    <div class="cf-marquee-wrapper">
+                        <div class="cf-marquee">
+                            <div class="cf-marquee-inner">
+                                <span class="cf-brand">Google</span>
+                                <span class="cf-brand">Microsoft</span>
+                                <span class="cf-brand">Amazon</span>
+                                <span class="cf-brand">Meta</span>
+                                <span class="cf-brand">Apple</span>
+                                <span class="cf-brand">Netflix</span>
+                                <span class="cf-brand">Spotify</span>
+                                <span class="cf-brand">Stripe</span>
+                                <span class="cf-brand">Google</span>
+                                <span class="cf-brand">Microsoft</span>
+                                <span class="cf-brand">Amazon</span>
+                                <span class="cf-brand">Meta</span>
+                                <span class="cf-brand">Apple</span>
+                                <span class="cf-brand">Netflix</span>
+                                <span class="cf-brand">Spotify</span>
+                                <span class="cf-brand">Stripe</span>
                             </div>
-                            <div id="loading-bar"
-                                class="h-full bg-gradient-to-r from-primary via-secondary to-primary rounded-full transition-all duration-500 relative"
-                                style="width: 0%">
-                                <div
-                                    class="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full shadow-lg shadow-white/50">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="cf-section">
+                    <div class="cf-stats-grid">
+                        <div class="cf-stat-card glass-card">
+                            <div class="cf-stat-icon" style="background:rgba(62,207,142,0.1);color:var(--accent-primary)"><i class="fas fa-file-alt"></i></div>
+                            <div class="cf-stat-body">
+                                <div class="cf-stat-label">Resumes Analyzed</div>
+                                <div class="cf-stat-value" id="stat-resumes">12,480</div>
+                                <div class="cf-stat-meta">+340 this week</div>
+                            </div>
+                            <i class="fas fa-chevron-right cf-stat-arrow"></i>
+                        </div>
+                        <div class="cf-stat-card glass-card">
+                            <div class="cf-stat-icon" style="background:rgba(139,92,246,0.1);color:var(--accent-accent)"><i class="fas fa-briefcase"></i></div>
+                            <div class="cf-stat-body">
+                                <div class="cf-stat-label">Jobs Matched</div>
+                                <div class="cf-stat-value" id="stat-jobs">8,320</div>
+                                <div class="cf-stat-meta">+210 this week</div>
+                            </div>
+                            <i class="fas fa-chevron-right cf-stat-arrow"></i>
+                        </div>
+                        <div class="cf-stat-card glass-card">
+                            <div class="cf-stat-icon" style="background:rgba(245,158,11,0.1);color:var(--accent-tertiary)"><i class="fas fa-chart-line"></i></div>
+                            <div class="cf-stat-body">
+                                <div class="cf-stat-label">Avg ATS Score</div>
+                                <div class="cf-stat-value">87%</div>
+                                <div class="cf-stat-meta">Top 15% improvement</div>
+                            </div>
+                            <i class="fas fa-chevron-right cf-stat-arrow"></i>
+                        </div>
+                        <div class="cf-stat-card glass-card">
+                            <div class="cf-stat-icon" style="background:rgba(34,197,94,0.1);color:var(--accent-success)"><i class="fas fa-users"></i></div>
+                            <div class="cf-stat-body">
+                                <div class="cf-stat-label">Active Users</div>
+                                <div class="cf-stat-value">2,410</div>
+                                <div class="cf-stat-meta">Growing daily</div>
+                            </div>
+                            <i class="fas fa-chevron-right cf-stat-arrow"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- How It Works -->
+                <div class="cf-section">
+                    <div class="cf-section-header">
+                        <h2 class="cf-section-title">How It Works</h2>
+                        <p class="cf-section-subtitle">Four simple steps to your dream job</p>
+                    </div>
+                    <div class="cf-steps-grid">
+                        <div class="cf-step glass-card">
+                            <span class="cf-step-num">01</span>
+                            <div class="cf-step-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+                            <h3>Upload Resume</h3>
+                            <p>Drop your PDF and we'll parse every section automatically</p>
+                        </div>
+                        <div class="cf-step glass-card">
+                            <span class="cf-step-num">02</span>
+                            <div class="cf-step-icon"><i class="fas fa-robot"></i></div>
+                            <h3>AI Analysis</h3>
+                            <p>Our multi-agent system evaluates skills, gaps, and opportunities</p>
+                        </div>
+                        <div class="cf-step glass-card">
+                            <span class="cf-step-num">03</span>
+                            <div class="cf-step-icon"><i class="fas fa-search-dollar"></i></div>
+                            <h3>Job Matching</h3>
+                            <p>Get curated roles ranked by fit score and career trajectory</p>
+                        </div>
+                        <div class="cf-step glass-card">
+                            <span class="cf-step-num">04</span>
+                            <div class="cf-step-icon"><i class="fas fa-road"></i></div>
+                            <h3>Career Plan</h3>
+                            <p>Receive a personalized action plan with milestones</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress -->
+                <div class="cf-section">
+                    <div class="cf-progress-card glass-card">
+                        <div class="cf-progress-header">
+                            <span class="cf-progress-label">Your Career Journey</span>
+                            <span class="cf-progress-pct" id="dash-progress-pct">25%</span>
+                        </div>
+                        <div class="cf-progress-track">
+                            <div class="cf-progress-fill" id="dash-progress-fill" style="width:25%"></div>
+                        </div>
+                        <div class="cf-progress-steps">
+                            <div class="cf-progress-step done">
+                                <div class="cf-progress-dot"></div>
+                                <span>Profile</span>
+                            </div>
+                            <div class="cf-progress-step">
+                                <div class="cf-progress-dot"></div>
+                                <span>Resume</span>
+                            </div>
+                            <div class="cf-progress-step">
+                                <div class="cf-progress-dot"></div>
+                                <span>Jobs</span>
+                            </div>
+                            <div class="cf-progress-step">
+                                <div class="cf-progress-dot"></div>
+                                <span>Apply</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Banner -->
+                <div class="cf-section">
+                    <div class="cf-action-banner glass-card">
+                        <div class="cf-action-icon"><i class="fas fa-wand-magic-sparkles"></i></div>
+                        <div class="cf-action-body">
+                            <div class="cf-action-label">AI Recommendation</div>
+                            <div class="cf-action-text">Upload your resume to unlock personalized career insights</div>
+                        </div>
+                        <button class="btn btn-primary btn-sm" id="dash-next-btn" onclick="navigateTo('resume')">
+                            <i class="fas fa-arrow-right"></i> Get Started
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="cf-section">
+                    <div class="cf-section-header">
+                        <h2 class="cf-section-title">Quick Actions</h2>
+                        <p class="cf-section-subtitle">Jump into any feature</p>
+                    </div>
+                    <div class="cf-actions-grid">
+                        <button class="cf-action-card glass-card" id="action-upload" onclick="navigateTo('resume')">
+                            <div class="cf-action-card-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+                            <h4>Upload Resume</h4>
+                            <p>Parse and analyze your resume with AI</p>
+                            <span class="cf-action-link">Start now <i class="fas fa-arrow-right"></i></span>
+                        </button>
+                        <button class="cf-action-card glass-card" id="action-search" onclick="navigateTo('jobs')">
+                            <div class="cf-action-card-icon"><i class="fas fa-search"></i></div>
+                            <h4>Find Jobs</h4>
+                            <p>Discover roles matched to your profile</p>
+                            <span class="cf-action-link">Start now <i class="fas fa-arrow-right"></i></span>
+                        </button>
+                        <button class="cf-action-card glass-card" id="action-ats" onclick="navigateTo('career')">
+                            <div class="cf-action-card-icon"><i class="fas fa-chart-bar"></i></div>
+                            <h4>ATS Score</h4>
+                            <p>See how your resume scores against ATS</p>
+                            <span class="cf-action-link">Start now <i class="fas fa-arrow-right"></i></span>
+                        </button>
+                        <button class="cf-action-card glass-card" id="action-chat" onclick="navigateTo('chat')">
+                            <div class="cf-action-card-icon"><i class="fas fa-comments"></i></div>
+                            <h4>AI Coach</h4>
+                            <p>Chat with your personal career assistant</p>
+                            <span class="cf-action-link">Start now <i class="fas fa-arrow-right"></i></span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Testimonials -->
+                <div class="cf-section">
+                    <div class="cf-section-header">
+                        <h2 class="cf-section-title">What Users Say</h2>
+                        <p class="cf-section-subtitle">Join thousands of successful job seekers</p>
+                    </div>
+                    <div class="cf-testimonials-grid">
+                        <div class="cf-testimonial glass-card">
+                            <div class="cf-testi-quote"><i class="fas fa-quote-left"></i></div>
+                            <p class="cf-testi-text">CareerCopilot completely changed my job search. The AI analysis found weaknesses in my resume I never noticed. Got 3 interview calls in the first week.</p>
+                            <div class="cf-testi-author">
+                                <div class="cf-testi-avatar" style="background:#3ecf8e">AK</div>
+                                <div>
+                                    <div class="cf-testi-name">Alex Kim</div>
+                                    <div class="cf-testi-role">Software Engineer</div>
                                 </div>
                             </div>
                         </div>
-                        <div class="flex justify-between text-xs text-gray-500">
-                            <span>0%</span>
-                            <span id="loading-percent">0%</span>
-                            <span>100%</span>
+                        <div class="cf-testimonial glass-card">
+                            <div class="cf-testi-quote"><i class="fas fa-quote-left"></i></div>
+                            <p class="cf-testi-text">The career plan feature is incredible. It gave me a clear roadmap with specific skills to develop and companies to target. Landed my dream role at Google.</p>
+                            <div class="cf-testi-author">
+                                <div class="cf-testi-avatar" style="background:#8b5cf6">MR</div>
+                                <div>
+                                    <div class="cf-testi-name">Maya Rodriguez</div>
+                                    <div class="cf-testi-role">Product Manager</div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Results -->
-                <div id="results-container" class="hidden space-y-6">
-                    <div id="plan-container" class="w-full">
-                        <div
-                            class="group p-8 rounded-xl bg-dark/50 border border-white/5 hover:border-primary/30 transition-all shadow-2xl">
-                            <h4 class="text-xl font-bold mb-6 flex items-center gap-3 text-white">
-                                <span class="text-2xl">📋</span> Comprehensive Career Action Plan
-                            </h4>
-                            <div id="career-plan-output"
-                                class="text-base text-gray-300 space-y-4 markdown-body h-[380px] overflow-y-auto pr-4 custom-scrollbar"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Jobs Section -->
-        <section id="jobs" class="scroll-mt-20">
-            <div class="flex items-center justify-between mb-6">
-                <div class="flex items-center gap-3">
-                    <div
-                        class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/20">
-                        <span class="text-lg">💼</span>
-                    </div>
-                    <div>
-                        <h2 class="text-2xl font-bold">Job Matches</h2>
-                        <p class="text-xs text-gray-500">AI-curated opportunities just for you</p>
-                    </div>
-                </div>
-                <button id="fetch-jobs-btn" onclick="fetchJobs()"
-                    class="group px-5 py-2.5 bg-gradient-to-r from-primary to-primaryDark rounded-xl text-sm font-semibold hover:shadow-xl hover:shadow-primary/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden">
-                    <span class="flex items-center gap-2 relative z-10">
-                        <svg class="w-4 h-4 group-hover:rotate-12 transition-transform" fill="none"
-                            stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        Fetch Jobs
-                    </span>
-                </button>
-            </div>
-
-            <div id="jobs-container" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <!-- Job cards will be inserted here -->
-            </div>
-
-            <div id="jobs-empty"
-                class="group p-8 rounded-2xl bg-card border border-white/5 text-center hover:border-primary/30 transition-all">
-                <div
-                    class="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center group-hover:scale-110 transition-transform empty-state-icon">
-                    <span class="text-4xl">💼</span>
-                </div>
-                <h3 class="text-lg font-medium mb-2">No jobs fetched yet</h3>
-                <p class="text-gray-400 text-sm">Click "Fetch Jobs" to see AI-curated opportunities</p>
-            </div>
-        </section>
-
-        <!-- Chat Section -->
-        <section id="chat" class="scroll-mt-20">
-            <div class="flex items-center gap-3 mb-6">
-                <div
-                    class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/20">
-                    <span class="text-lg">💬</span>
-                </div>
-                <div>
-                    <h2 class="text-2xl font-bold">Chat with Career Coach</h2>
-                    <p class="text-xs text-gray-500">Powered by Gemini AI with memory</p>
-                </div>
-            </div>
-
-            <div class="p-6 rounded-2xl bg-card border border-white/5 relative overflow-hidden">
-                <!-- Decorative elements -->
-                <div class="absolute top-0 right-0 w-32 h-32 bg-secondary/5 rounded-full blur-2xl pointer-events-none">
-                </div>
-
-                <div id="chat-messages"
-                    class="h-[500px] overflow-y-auto space-y-4 mb-4 p-4 bg-dark/50 rounded-xl border border-white/5 relative z-10">
-                    <div class="flex items-start gap-3">
-                        <div
-                            class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary/25">
-                            <span class="text-lg">🤖</span>
-                        </div>
-                        <div class="flex-1">
-                            <div
-                                class="bg-gradient-to-br from-white/5 to-white/10 rounded-2xl rounded-tl-none p-4 max-w-[85%] backdrop-blur-sm border border-white/5">
-                                <p class="text-sm leading-relaxed">Hi! I'm your AI career coach. I've analyzed your
-                                    resume and can help you with:</p>
-                                <ul class="text-sm mt-2 space-y-1 text-gray-300">
-                                    <li class="flex items-center gap-2"><span class="text-primary">✓</span> Job search
-                                        strategies</li>
-                                    <li class="flex items-center gap-2"><span class="text-primary">✓</span> Resume
-                                        optimization tips</li>
-                                    <li class="flex items-center gap-2"><span class="text-primary">✓</span> Interview
-                                        preparation</li>
-                                    <li class="flex items-center gap-2"><span class="text-primary">✓</span> Career
-                                        guidance</li>
-                                </ul>
-                                <p class="text-sm mt-3 text-gray-400">What would you like to know?</p>
+                        <div class="cf-testimonial glass-card">
+                            <div class="cf-testi-quote"><i class="fas fa-quote-left"></i></div>
+                            <p class="cf-testi-text">The ATS scoring alone is worth it. I optimized my resume and my callback rate doubled. The AI coach chat is like having a mentor available 24/7.</p>
+                            <div class="cf-testi-author">
+                                <div class="cf-testi-avatar" style="background:#f59e0b">TS</div>
+                                <div>
+                                    <div class="cf-testi-name">Tyler Singh</div>
+                                    <div class="cf-testi-role">Data Analyst</div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <form onsubmit="sendMessage(event)" class="flex gap-3 relative z-10">
-                    <input type="text" id="chat-input" placeholder="Ask about your career, resume, or job search..."
-                        class="flex-1 px-5 py-4 bg-dark border border-white/10 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all">
-                    <button type="submit"
-                        class="group px-6 py-4 bg-gradient-to-r from-primary to-primaryDark rounded-xl font-semibold hover:shadow-xl hover:shadow-primary/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5">
-                        <svg class="w-5 h-5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
-                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                        </svg>
-                    </button>
-                </form>
+                <!-- FAQ -->
+                <div class="cf-section">
+                    <div class="cf-section-header">
+                        <h2 class="cf-section-title">Frequently Asked Questions</h2>
+                    </div>
+                    <div class="cf-faq-list">
+                        <div class="cf-faq-item glass-card">
+                            <button class="cf-faq-question">
+                                <span>How does the AI resume analysis work?</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="cf-faq-answer">
+                                <p>Our multi-agent AI system parses your resume, evaluates skills, experience, and keywords, then compares against ATS standards and job market data to give you a comprehensive score and improvement plan.</p>
+                            </div>
+                        </div>
+                        <div class="cf-faq-item glass-card">
+                            <button class="cf-faq-question">
+                                <span>Is my data safe and private?</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="cf-faq-answer">
+                                <p>Yes, your data is encrypted and never shared with third parties. You can delete your data at any time. We use industry-standard security practices.</p>
+                            </div>
+                        </div>
+                        <div class="cf-faq-item glass-card">
+                            <button class="cf-faq-question">
+                                <span>What AI models do you use?</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="cf-faq-answer">
+                                <p>We support multiple AI providers including Google Gemini, OpenAI GPT, Groq, DeepSeek, and Qwen. You can choose your preferred model in settings.</p>
+                            </div>
+                        </div>
+                        <div class="cf-faq-item glass-card">
+                            <button class="cf-faq-question">
+                                <span>Can I use my own API key?</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="cf-faq-answer">
+                                <p>Absolutely. You can add your own API key in Settings to bypass our default limits and use the model of your choice directly.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <footer class="cf-footer">
+                    <div class="cf-footer-grid">
+                        <div class="cf-footer-brand">
+                            <div class="cf-footer-logo">
+                                <img src="logo.png" alt="CareerCopilot AI" class="logo-img-sm">
+                                <span>CareerCopilot<span class="accent">AI</span></span>
+                            </div>
+                            <p>Your AI-powered career command center. Analyze resumes, find jobs, and build your career with confidence.</p>
+                            <div class="cf-footer-social">
+                                <a href="#"><i class="fab fa-twitter"></i></a>
+                                <a href="#"><i class="fab fa-linkedin"></i></a>
+                                <a href="#"><i class="fab fa-github"></i></a>
+                            </div>
+                        </div>
+                        <div class="cf-footer-col">
+                            <h4>Product</h4>
+                            <a href="#">Resume Analysis</a>
+                            <a href="#">Job Matching</a>
+                            <a href="#">ATS Scoring</a>
+                            <a href="#">AI Coach</a>
+                        </div>
+                        <div class="cf-footer-col">
+                            <h4>Resources</h4>
+                            <a href="#">Documentation</a>
+                            <a href="#">Blog</a>
+                            <a href="#">Career Guides</a>
+                            <a href="#">API</a>
+                        </div>
+                        <div class="cf-footer-col">
+                            <h4>Company</h4>
+                            <a href="#">About</a>
+                            <a href="#">Privacy</a>
+                            <a href="#">Terms</a>
+                            <a href="#">Contact</a>
+                        </div>
+                    </div>
+                    <div class="cf-footer-bottom">
+                        <span>&copy; 2026 CareerCopilot AI. All rights reserved.</span>
+                        <div class="cf-footer-legal">
+                            <a href="#">Privacy</a>
+                            <a href="#">Terms</a>
+                        </div>
+                    </div>
+                </footer>
+            </section>
+
+            <!-- ══════════════════════════════════════════════════════════════════
+                 RESUME SECTION
+                 ══════════════════════════════════════════════════════════════════ -->
+            <section id="section-resume" class="section">
+                <div class="section-header">
+                    <div>
+                        <h2 class="section-title"><i class="fas fa-file-alt"></i> Resume</h2>
+                        <p class="section-subtitle">Upload and analyze your resume with AI</p>
+                    </div>
+                </div>
+                <div class="resume-content">
+                    <div id="upload-zone" class="upload-zone glass-card">
+                        <div class="upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+                        <h3>Drop your resume here</h3>
+                        <p>or click to browse PDF files</p>
+                        <input type="file" id="resume-file-input" accept=".pdf" hidden>
+                        <button class="btn btn-primary" id="upload-btn">
+                            <i class="fas fa-upload"></i> Choose File
+                        </button>
+                    </div>
+                    <div id="resume-card" class="resume-card glass-card hidden">
+                        <div class="resume-card-header">
+                            <div class="resume-file-info">
+                                <i class="fas fa-file-pdf"></i>
+                                <span id="resume-filename">resume.pdf</span>
+                            </div>
+                            <div class="resume-actions">
+                                <button class="btn btn-ghost btn-sm" id="analyze-ats-btn"><i class="fas fa-clipboard-check"></i> ATS Score</button>
+                                <button class="btn btn-ghost btn-sm btn-danger" id="delete-resume-btn"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                        <div class="resume-stats" id="resume-stats">
+                            <div class="resume-stat-item">
+                                <div class="resume-stat-label">Words</div>
+                                <div class="resume-stat-value" id="resume-words">—</div>
+                            </div>
+                            <div class="resume-stat-item">
+                                <div class="resume-stat-label">Sections</div>
+                                <div class="resume-stat-value" id="resume-sections">—</div>
+                            </div>
+                            <div class="resume-stat-item">
+                                <div class="resume-stat-label">ATS Score</div>
+                                <div class="resume-stat-value" id="resume-ats-score">—</div>
+                            </div>
+                        </div>
+                        <div class="resume-profile" id="resume-profile"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ══════════════════════════════════════════════════════════════════
+                 JOBS SECTION
+                 ══════════════════════════════════════════════════════════════════ -->
+            <section id="section-jobs" class="section">
+                <div class="section-header">
+                    <div>
+                        <h2 class="section-title"><i class="fas fa-briefcase"></i> Jobs</h2>
+                        <p class="section-subtitle">Discover AI-matched opportunities</p>
+                    </div>
+                </div>
+                <div class="jobs-hero glass-card">
+                    <div class="jobs-hero-icon"><i class="fas fa-search"></i></div>
+                    <h3 class="jobs-hero-title">Find Your Perfect Role</h3>
+                    <p class="jobs-hero-sub">Search thousands of jobs matched to your skills and experience</p>
+                    <div class="jobs-search-bar">
+                        <div class="jobs-search-field">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="job-keywords" placeholder="Job title, skill, or company">
+                        </div>
+                        <div class="jobs-search-divider"></div>
+                        <div class="jobs-search-field">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <input type="text" id="job-location" placeholder="City, state, or remote">
+                        </div>
+                        <button class="btn btn-primary jobs-search-btn" id="search-jobs-btn">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                    </div>
+                    <div class="jobs-quick-tags">
+                        <span class="jobs-quick-tag" onclick="quickJobSearch('Software Engineer')"><i class="fas fa-code"></i> Software Engineer</span>
+                        <span class="jobs-quick-tag" onclick="quickJobSearch('Data Scientist')"><i class="fas fa-chart-bar"></i> Data Scientist</span>
+                        <span class="jobs-quick-tag" onclick="quickJobSearch('Product Manager')"><i class="fas fa-lightbulb"></i> Product Manager</span>
+                        <span class="jobs-quick-tag" onclick="quickJobSearch('Designer')"><i class="fas fa-paint-brush"></i> Designer</span>
+                        <span class="jobs-quick-tag" onclick="quickJobSearch('Remote')"><i class="fas fa-globe"></i> Remote</span>
+                    </div>
+                </div>
+                <div class="jobs-list" id="jobs-list"></div>
+                <div id="jobs-empty" class="empty-state glass-card">
+                    <div class="empty-state-icon"><i class="fas fa-briefcase"></i></div>
+                    <h3>No jobs found yet</h3>
+                    <p>Search for jobs or use a quick tag above to get started</p>
+                </div>
+            </section>
+
+            <!-- ══════════════════════════════════════════════════════════════════
+                 CAREER SECTION
+                 ══════════════════════════════════════════════════════════════════ -->
+            <section id="section-career" class="section">
+                <div class="section-header">
+                    <div>
+                        <h2 class="section-title"><i class="fas fa-route"></i> Career Plan</h2>
+                        <p class="section-subtitle">AI-generated career roadmap</p>
+                    </div>
+                </div>
+                <div class="career-content">
+                    <div class="glass-card" style="text-align:center;padding:40px">
+                        <div style="font-size:2.5rem;margin-bottom:16px"><i class="fas fa-wand-magic-sparkles" style="color:var(--accent-primary)"></i></div>
+                        <h3 style="margin-bottom:8px">Generate Your Career Plan</h3>
+                        <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:24px">Upload your resume first, then let AI create a personalized action plan</p>
+                        <button class="btn btn-primary" id="generate-plan-btn">
+                            <i class="fas fa-magic"></i> Generate Plan
+                        </button>
+                        <button class="btn btn-ghost" id="export-plan-btn" style="display:none">
+                            <i class="fas fa-download"></i> Export PDF
+                        </button>
+                    </div>
+                    <div id="career-plan-result" class="hidden" style="margin-top:20px"></div>
+                </div>
+            </section>
+
+            <!-- ══════════════════════════════════════════════════════════════════
+                 INTERVIEW SECTION
+                 ══════════════════════════════════════════════════════════════════ -->
+            <section id="section-interview" class="section">
+                <div class="section-header">
+                    <div>
+                        <h2 class="section-title"><i class="fas fa-comments"></i> Interview Prep</h2>
+                        <p class="section-subtitle">Practice with AI-powered mock interviews</p>
+                    </div>
+                </div>
+                <div class="interview-content">
+                    <div class="glass-card" style="text-align:center;padding:40px">
+                        <div style="font-size:2.5rem;margin-bottom:16px"><i class="fas fa-user-tie" style="color:var(--accent-primary)"></i></div>
+                        <h3 style="margin-bottom:8px">Start Mock Interview</h3>
+                        <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:24px">Get AI-generated interview questions based on your resume and target role</p>
+                        <button class="btn btn-primary" id="start-interview-btn">
+                            <i class="fas fa-play"></i> Start Interview
+                        </button>
+                    </div>
+                    <div id="interview-questions" class="hidden" style="margin-top:20px"></div>
+                </div>
+            </section>
+
+            <!-- ══════════════════════════════════════════════════════════════════
+                 COVER LETTER SECTION
+                 ══════════════════════════════════════════════════════════════════ -->
+            <section id="section-cover-letter" class="section">
+                <div class="section-header">
+                    <div>
+                        <h2 class="section-title"><i class="fas fa-pen-fancy"></i> Cover Letter</h2>
+                        <p class="section-subtitle">Generate tailored cover letters with AI</p>
+                    </div>
+                </div>
+                <div class="cl-container">
+                    <div class="cl-generator glass-card">
+                        <div class="cl-gen-title"><i class="fas fa-wand-magic-sparkles"></i> Generate Cover Letter</div>
+                        <div class="form-group">
+                            <label>Target Company</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-building"></i>
+                                <input type="text" id="cl-company" placeholder="e.g. Google">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Target Role</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-user-tie"></i>
+                                <input type="text" id="cl-role" placeholder="e.g. Senior Software Engineer">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Tone</label>
+                            <div class="cl-tone-selector">
+                                <button class="cl-tone-btn active" data-tone="professional"><i class="fas fa-briefcase"></i> Professional</button>
+                                <button class="cl-tone-btn" data-tone="confident"><i class="fas fa-shield-alt"></i> Confident</button>
+                                <button class="cl-tone-btn" data-tone="enthusiastic"><i class="fas fa-fire"></i> Enthusiastic</button>
+                                <button class="cl-tone-btn" data-tone="creative"><i class="fas fa-lightbulb"></i> Creative</button>
+                            </div>
+                        </div>
+                        <div style="text-align:center;margin-top:8px">
+                            <button class="btn btn-primary btn-lg" id="cl-generate-btn">
+                                <i class="fas fa-magic"></i> Generate Cover Letter
+                            </button>
+                        </div>
+                    </div>
+                    <div id="cl-result" class="cl-result hidden">
+                        <div class="cl-result-card glass-card">
+                            <div class="cl-result-header">
+                                <div>
+                                    <h3>Your Cover Letter</h3>
+                                    <span class="cl-result-meta" id="cl-result-meta"></span>
+                                </div>
+                                <div class="cl-result-actions">
+                                    <button class="btn btn-ghost btn-sm" id="cl-copy-btn"><i class="fas fa-copy"></i> Copy</button>
+                                </div>
+                            </div>
+                            <div class="cl-result-content" id="cl-result-content"></div>
+                        </div>
+                    </div>
+                    <div class="cl-history" id="cl-history">
+                        <div class="cl-history-title"><i class="fas fa-history"></i> History</div>
+                        <div class="cl-history-list" id="cl-history-list"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ══════════════════════════════════════════════════════════════════
+                 SETTINGS SECTION
+                 ══════════════════════════════════════════════════════════════════ -->
+            <section id="section-settings" class="section">
+                <div class="section-header">
+                    <div>
+                        <h2 class="section-title"><i class="fas fa-cog"></i> Settings</h2>
+                        <p class="section-subtitle">Manage your profile, AI model, and preferences</p>
+                    </div>
+                </div>
+                <div class="settings-content">
+                    <!-- Profile Card -->
+                    <div class="settings-section-card glass-card">
+                        <h3><i class="fas fa-user"></i> Profile</h3>
+                        <div class="settings-profile-row">
+                            <div class="settings-avatar-lg" id="settings-avatar-wrap">
+                                <span id="settings-initial">J</span>
+                                <div class="settings-avatar-lg-overlay"><i class="fas fa-camera"></i></div>
+                                <input type="file" id="settings-avatar-input" accept="image/*" hidden>
+                            </div>
+                            <div style="flex:1">
+                                <div class="form-group">
+                                    <label>Display Name</label>
+                                    <input type="text" id="settings-name" placeholder="Your name">
+                                </div>
+                                <div class="form-group">
+                                    <label>Email</label>
+                                    <input type="email" id="settings-email" placeholder="you@gmail.com" disabled style="opacity:0.5">
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="settings-save-profile"><i class="fas fa-check"></i> Save Profile</button>
+                    </div>
+
+                    <!-- AI Model Card -->
+                    <div class="settings-section-card glass-card">
+                        <h3><i class="fas fa-robot"></i> AI Model</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>AI Provider</label>
+                                <select id="settings-provider">
+                                    <option value="gemini">Google Gemini</option>
+                                    <option value="openai">OpenAI</option>
+                                    <option value="groq">Groq</option>
+                                    <option value="deepseek">DeepSeek</option>
+                                    <option value="qwen">Qwen</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Model</label>
+                                <select id="settings-model">
+                                    <option value="gemini/gemini-2.5-flash">Gemini 2.5 Flash</option>
+                                    <option value="gemini/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+                                    <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
+                                    <option value="groq/llama-3.3-70b-versatile">Llama 3.3 70B</option>
+                                    <option value="deepseek/deepseek-chat">DeepSeek V3</option>
+                                    <option value="qwen/qwen-turbo">Qwen Turbo</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>API Key <span style="color:var(--text-muted);font-size:0.75rem">(optional override)</span></label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-key"></i>
+                                <input type="password" id="settings-api-key" placeholder="Paste your API key">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="settings-save-model"><i class="fas fa-save"></i> Save Model Settings</button>
+                    </div>
+
+                    <!-- Appearance Card -->
+                    <div class="settings-section-card glass-card">
+                        <h3><i class="fas fa-palette"></i> Appearance</h3>
+                        <div class="settings-theme-grid">
+                            <button class="settings-theme-btn active" id="theme-dark" data-theme="dark">
+                                <i class="fas fa-moon"></i>
+                                <span>Dark</span>
+                            </button>
+                            <button class="settings-theme-btn" id="theme-light" data-theme="light">
+                                <i class="fas fa-sun"></i>
+                                <span>Light</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Account Card -->
+                    <div class="settings-section-card glass-card settings-logout-card">
+                        <h3><i class="fas fa-shield-alt"></i> Account</h3>
+                        <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:16px">Sign out of your account on this device</p>
+                        <button class="btn btn-danger" id="settings-logout"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ══════════════════════════════════════════════════════════════════
+                 AI CHAT — Floating Widget
+                 ══════════════════════════════════════════════════════════════════ -->
+            <div id="chat-widget" class="chat-widget">
+                <div class="chat-widget-header">
+                    <div class="chat-widget-title">
+                        <div class="chat-avatar-ai" style="width:32px;height:32px;font-size:0.8rem"><i class="fas fa-robot"></i></div>
+                        <span>AI Career Coach</span>
+                    </div>
+                    <button class="chat-widget-close" id="chat-widget-close"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="chat-messages" id="chat-messages">
+                    <div class="chat-welcome">
+                        <div class="chat-avatar-ai"><i class="fas fa-robot"></i></div>
+                        <h3>Hi, I'm your Career Coach</h3>
+                        <p>Ask me anything about your career, resume, or job search</p>
+                    </div>
+                </div>
+                <div class="chat-input-area">
+                    <div class="chat-input-wrapper">
+                        <textarea id="chat-input" placeholder="Type your message..." rows="1"></textarea>
+                        <button class="btn btn-primary btn-icon" id="send-chat-btn">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <div class="chat-meta" id="chat-meta"></div>
+                </div>
             </div>
-        </section>
 
-    </main>
+            <!-- Floating Chat Button -->
+            <button class="chat-fab" id="chat-fab">
+                <i class="fas fa-comment-dots"></i>
+            </button>
 
-    <!-- Footer -->
-    <footer class="border-t border-white/5 py-8 px-4 mt-16">
-        <div class="max-w-7xl mx-auto text-center text-gray-500 text-sm">
-            <p>Built with ❤️ By Agentic Lab</p>
-            <p class="mt-2">CareerCopilot AI &copy; 2026</p>
-        </div>
-    </footer>
+        </main>
+    </div>
 
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="workflow.js"></script>
     <script src="script.js"></script>
 </body>
-
 </html>
