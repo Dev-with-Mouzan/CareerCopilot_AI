@@ -79,13 +79,19 @@ async def identify_gaps_node(state: CareerState) -> dict:
 
 
 async def generate_learning_plan_node(state: CareerState) -> dict:
-    """Use LLM to generate a prioritized learning plan."""
+    """Use LLM to generate a prioritized learning plan, with a deterministic fallback."""
     gaps = state.get("skill_gaps", [])
     target_role = state.get("target_role", "")
     top_gaps = [g for g in gaps if isinstance(g, dict) and g.get("priority", 99) <= 3][:10]
 
     if not top_gaps:
-        return {"plan": {"learning_priorities": []}}
+        fallback = [
+            f"Map out the core skills required for {target_role} and identify your gaps",
+            f"Pick one flagship project to build for your {target_role} portfolio",
+            f"Contribute to an open-source project relevant to {target_role}",
+            f"Practice {target_role} interview questions weekly",
+        ]
+        return {"plan": {"learning_priorities": fallback}}
 
     gap_summary = "\n".join(
         f"- {g.get('skill', 'N/A')} (demand: {g.get('market_demand', 'N/A')}, priority: {g.get('priority', 'N/A')})"
@@ -107,7 +113,10 @@ async def generate_learning_plan_node(state: CareerState) -> dict:
         return {"plan": {"learning_priorities": [str(result)]}}
     except Exception as exc:
         logger.warning("LLM learning plan failed: %s", exc)
-        return {"plan": {"learning_priorities": [f"Focus on: {', '.join(g.get('skill', '') for g in top_gaps[:5])}"]}}
+        fallback = [
+            f"Focus on: {', '.join(g.get('skill', '') for g in top_gaps[:5])}"
+        ]
+        return {"plan": {"learning_priorities": fallback}}
 
 
 async def generate_projects_node(state: CareerState) -> dict:
@@ -177,7 +186,14 @@ async def generate_application_strategy_node(state: CareerState) -> dict:
         return {"plan": {**plan, "application_strategy": str(result)}}
     except Exception as exc:
         logger.warning("LLM strategy failed: %s", exc)
-        return {"plan": state.get("plan", {})}
+        plan = state.get("plan", {})
+        fallback = (
+            f"Tailor your resume and cover letter with {target_role} keywords. "
+            "Apply directly on company career pages, use LinkedIn Easy Apply, and "
+            "reach out to 2-3 recruiters weekly. Prepare 2-3 strong stories with "
+            "measurable outcomes for interviews."
+        )
+        return {"plan": {**plan, "application_strategy": fallback}}
 
 
 async def synthesize_plan_node(state: CareerState) -> dict:
@@ -214,11 +230,11 @@ async def error_node(state: CareerState) -> dict:
 # ── Routing ────────────────────────────────────────────────────────────────────
 
 
-def route_after_gaps(state: CareerState) -> Literal["generate_learning_plan", "error_node"]:
-    """Skip to synthesize if no gaps found."""
-    gaps = state.get("skill_gaps", [])
-    if not gaps:
-        return "error_node"
+def route_after_gaps(state: CareerState) -> str:
+    """Always proceed to learning plan generation.
+
+    Empty gaps are a normal case (e.g. no market data yet) — not a failure.
+    """
     return "generate_learning_plan"
 
 

@@ -1,216 +1,141 @@
-"""Resume management endpoints."""
+"""Resume management endpoints — in-memory storage."""
 
 from __future__ import annotations
 
 import hashlib
 import logging
 import re
+import uuid
+from datetime import datetime, timezone
 from typing import Annotated
-from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, status
-from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 
-from backend.core.config import get_settings
-from backend.core.models import Resume, ResumeVersion, User
-from backend.core.schemas import ResumeProfile, ResumeVersion as ResumeVersionSchema, UserProfile
-from backend.db.session import get_db
+from backend.core.schemas import UserProfile
+from backend.core.store import (
+    _Resume,
+    get_resume,
+    list_resumes,
+    save_resume,
+    delete_resume as _del_resume,
+)
 from backend.security.auth import get_current_user
 from backend.security.sanitization import sanitize_file_upload
+from backend.services.resume_parser import parse_resume_from_text
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 router = APIRouter(prefix="/resumes")
-
-
-# Upload & parse 
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def upload_resume(
-    background_tasks: BackgroundTasks,
     file: Annotated[UploadFile, File()],
     user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
-    """Upload a resume file (PDF/DOCX/TXT).  Parsing runs in background."""
+    """Upload a resume file (PDF/DOCX/TXT). Parsing runs synchronously."""
     raw = await sanitize_file_upload(file)
 
-    # Ensure user exists in DB
-    existing = await db.execute(select(User).where(User.id == user.id))
-    if existing.scalar_one_or_none() is None:
-        db.add(User(id=user.id, email=user.email, name=user.name))
-        await db.flush()
-
-    # Decode bytes, strip null bytes and control chars (keeps newlines/tabs)
     _text = raw.decode("utf-8", errors="replace")[:100_000]
     _text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", _text)
 
-    resume = Resume(
+    resume_id = uuid.uuid4()
+    content_hash = hashlib.sha256(_text.encode()).hexdigest()
+
+    # Parse synchronously
+    try:
+        profile = parse_resume_from_text(_text, content_hash=content_hash)
+        parsed = profile.model_dump()
+        word_count = len(_text.split())
+        sections_found = sum(1 for v in [
+            profile.skills, profile.experience, profile.education,
+            profile.projects, profile.certifications,
+        ] if v)
+        parsing_status = "completed"
+    except Exception as exc:
+        logger.warning("Resume parsing failed: %s", exc)
+        parsed = {}
+        word_count = 0
+        sections_found = 0
+        parsing_status = "failed"
+
+    now = datetime.now(timezone.utc).isoformat()
+    resume = _Resume(
+        id=resume_id,
         user_id=user.id,
-        original_filename=file.filename,
+        original_filename=file.filename or "resume.pdf",
         raw_text=_text,
-        parsing_status="pending",
+        parsed_profile=parsed,
+        parsing_status=parsing_status,
+        created_at=now,
+        versions=[{
+            "id": str(uuid.uuid4()),
+            "version_number": 1,
+            "content_hash": content_hash,
+            "created_at": now,
+        }],
     )
-    db.add(resume)
-    await db.flush()
-
-    # Create initial version
-    content_hash = hashlib.sha256(resume.raw_text.encode()).hexdigest()
-    version = ResumeVersion(
-        resume_id=resume.id,
-        version_number=1,
-        content_hash=content_hash,
-        content=resume.raw_text,
-    )
-    db.add(version)
-    await db.commit()
-
-    # Schedule background parsing
-    background_tasks.add_task(_parse_resume, str(resume.id), str(version.id))
+    save_resume(resume)
 
     return {
         "resume_id": str(resume.id),
-        "version_id": str(version.id),
-        "status": "parsing",
+        "status": parsing_status,
         "filename": file.filename,
+        "word_count": word_count,
+        "sections_found": sections_found,
+        "summary": profile.summary if parsing_status == "completed" else "",
     }
 
 
-async def _parse_resume(resume_id: str, version_id: str) -> None:
-    """Background task: invoke the resume parser graph."""
-    try:
-        from backend.graphs.resume_graph import resume_pipeline
-
-        await resume_pipeline.ainvoke(
-            {
-                "resume_id": UUID(resume_id),
-                "resume_version_id": UUID(version_id),
-                "user_id": None,
-                "resume_text": "",
-                "resume_profile": {},
-                "parsing_status": "pending",
-                "error": None,
-            }
-        )
-    except Exception:
-        logger.exception("Resume parsing failed for %s", resume_id)
-
-
-# ── List user resumes ────────────────────────────────────────────────────────
-
-
 @router.get("")
-async def list_resumes(
-    user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(
-        select(Resume).where(Resume.user_id == user.id).order_by(Resume.created_at.desc())
-    )
-    rows = result.scalars().all()
+async def list_user_resumes(user: UserProfile = Depends(get_current_user)):
+    rows = list_resumes(user.id)
     return {
         "resumes": [
             {
                 "id": str(r.id),
                 "filename": r.original_filename,
                 "status": r.parsing_status,
-                "created_at": r.created_at.isoformat(),
+                "created_at": r.created_at,
             }
             for r in rows
         ]
     }
 
 
-# ── Get resume details ──────────────────────────────────────────────────────
-
-
 @router.get("/{resume_id}")
-async def get_resume(
-    resume_id: UUID,
+async def get_resume_detail(
+    resume_id: uuid.UUID,
     user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
-    resume = await _get_user_resume(db, user.id, resume_id)
-    versions = await db.execute(
-        select(ResumeVersion).where(ResumeVersion.resume_id == resume_id).order_by(ResumeVersion.version_number)
-    )
-    ver_rows = versions.scalars().all()
+    resume = get_resume(resume_id)
+    if resume is None or resume.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Resume not found")
+
+    profile = resume.parsed_profile or {}
+    word_count = len(resume.raw_text.split())
+    sections_found = sum(1 for v in [
+        profile.get("skills"), profile.get("experience"), profile.get("education"),
+        profile.get("projects"), profile.get("certifications"),
+    ] if v)
+
     return {
         "id": str(resume.id),
         "filename": resume.original_filename,
         "status": resume.parsing_status,
-        "parsed_profile": resume.parsed_profile,
-        "versions": [
-            {
-                "id": str(v.id),
-                "version_number": v.version_number,
-                "target_role": v.target_role,
-                "ats_score": v.ats_score,
-                "created_at": v.created_at.isoformat(),
-            }
-            for v in ver_rows
-        ],
+        "parsed_profile": profile,
+        "word_count": word_count,
+        "sections_found": sections_found,
+        "summary": profile.get("summary", ""),
+        "versions": resume.versions,
     }
-
-
-# ── Delete resume ────────────────────────────────────────────────────────────
 
 
 @router.delete("/{resume_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_resume(
-    resume_id: UUID,
+async def delete_resume_endpoint(
+    resume_id: uuid.UUID,
     user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
-    resume = await _get_user_resume(db, user.id, resume_id)
-    await db.delete(resume)
-    await db.commit()
-
-
-# ── Create new version ──────────────────────────────────────────────────────
-
-
-@router.post("/{resume_id}/versions", status_code=status.HTTP_201_CREATED)
-async def create_version(
-    resume_id: UUID,
-    target_role: str = "",
-    user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    resume = await _get_user_resume(db, user.id, resume_id)
-
-    count = await db.execute(
-        select(func.count()).select_from(ResumeVersion).where(ResumeVersion.resume_id == resume_id)
-    )
-    next_num = count.scalar() + 1
-
-    content_hash = hashlib.sha256((resume.raw_text or "").encode()).hexdigest()
-    version = ResumeVersion(
-        resume_id=resume_id,
-        version_number=next_num,
-        target_role=target_role,
-        content_hash=content_hash,
-        content=resume.raw_text,
-    )
-    db.add(version)
-    await db.commit()
-
-    return {
-        "version_id": str(version.id),
-        "version_number": next_num,
-    }
-
-
-# ── Helper ───────────────────────────────────────────────────────────────────
-
-
-async def _get_user_resume(db: AsyncSession, user_id: UUID, resume_id: UUID) -> Resume:
-    result = await db.execute(
-        select(Resume).where(Resume.id == resume_id, Resume.user_id == user_id)
-    )
-    resume = result.scalar_one_or_none()
-    if resume is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resume not found")
-    return resume
+    resume = get_resume(resume_id)
+    if resume is None or resume.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    _del_resume(resume_id)

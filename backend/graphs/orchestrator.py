@@ -88,6 +88,7 @@ async def run_job_pipeline(
     user_id: UUID,
     resume_id: UUID,
     target_role: str,
+    resume_profile: dict | None = None,
 ) -> dict[str, Any]:
     """Run the job discovery and matching pipeline."""
     pipeline = _get_job_pipeline()
@@ -104,6 +105,10 @@ async def run_job_pipeline(
         "matched_jobs": [],
         "recommendations": [],
     }
+
+    # Attach resume profile for skill-based matching
+    if resume_profile:
+        initial_state["resume_profile"] = resume_profile
 
     result = await pipeline.ainvoke(initial_state)
     return dict(result)

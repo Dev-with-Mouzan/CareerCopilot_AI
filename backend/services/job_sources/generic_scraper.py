@@ -78,7 +78,6 @@ class GenericScraperSource(AbstractJobSource):
     async def _fetch_raw(self, query: str, limit: int) -> list[Job]:
         url = self.target_url
         if not url:
-            logger.warning("GenericScraper: no target_url configured")
             return []
 
         async with httpx.AsyncClient(follow_redirects=True) as client:

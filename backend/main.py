@@ -13,12 +13,18 @@ import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from backend.api.router import api_router
 from backend.core.config import get_settings
-from backend.db.session import init_db, close_db
 from backend.observability.tracing import TracingMiddleware
 from backend.security.rate_limit import RateLimitMiddleware
+from backend.services.llm_service import (
+    reset_request_api_key,
+    reset_request_model,
+    set_request_api_key,
+    set_request_model,
+)
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -43,10 +49,8 @@ def _configure_litellm_keys() -> None:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup / shutdown lifecycle."""
     _configure_litellm_keys()
-    logger.info("Starting %s v%s", settings.app_name, settings.app_version)
-    await init_db()
+    logger.info("Starting %s v%s (in-memory mode)", settings.app_name, settings.app_version)
     yield
-    await close_db()
     logger.info("Shutdown complete")
 
 
@@ -81,6 +85,21 @@ def create_app() -> FastAPI:
     # so every request gets traced even if rate-limited.
     app.add_middleware(RateLimitMiddleware)
     app.add_middleware(TracingMiddleware)
+
+    # ── Per-request API key + model from headers ──────────────────────────
+    @app.middleware("http")
+    async def _request_context_middleware(request: Request, call_next):
+        api_key = request.headers.get("x-api-key", "").strip()
+        model = request.headers.get("x-model", "").strip()
+        key_token = set_request_api_key(api_key) if api_key else None
+        model_token = set_request_model(model) if model else None
+        try:
+            return await call_next(request)
+        finally:
+            if key_token is not None:
+                reset_request_api_key(key_token)
+            if model_token is not None:
+                reset_request_model(model_token)
 
     # ── Routes ────────────────────────────────────────────────────────────
     app.include_router(api_router)

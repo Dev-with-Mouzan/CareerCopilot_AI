@@ -1,16 +1,20 @@
-"""Centralized LLM service — model routing, structured output, caching, cost tracking."""
+"""Centralized LLM service — LangChain-backed model routing, structured output, caching, cost tracking.
+
+Uses LangChain chat models (Google Gemini, Groq, OpenAI, DeepSeek, Qwen) instead of
+raw litellm calls. The public API (``ModelRouter.complete`` / ``stream`` /
+``structured``) is unchanged, so every LangGraph node keeps working as-is.
+"""
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import logging
 import time
+from contextvars import ContextVar, Token
 from enum import Enum
-from typing import Any, TypeVar
+from typing import Any, AsyncIterator, TypeVar
 
-import litellm
 from pydantic import BaseModel
 
 from backend.core.config import get_settings
@@ -18,6 +22,42 @@ from backend.core.config import get_settings
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
+
+# ── Per-request API key override ─────────────────────────────────────────────
+
+_request_api_key: ContextVar[str] = ContextVar("request_api_key", default="")
+
+
+def set_request_api_key(key: str) -> Token[str]:
+    """Set the API key to use for the current request's LLM calls."""
+    return _request_api_key.set(key)
+
+
+def reset_request_api_key(token: Token[str]) -> None:
+    """Restore the previous request API key context."""
+    _request_api_key.reset(token)
+
+
+def get_request_api_key() -> str:
+    return _request_api_key.get()
+
+# ── Per-request model override ───────────────────────────────────────────────
+
+_request_model: ContextVar[str] = ContextVar("request_model", default="")
+
+
+def set_request_model(model: str) -> Token[str]:
+    """Set the model override to use for the current request's LLM calls."""
+    return _request_model.set(model)
+
+
+def reset_request_model(token: Token[str]) -> None:
+    """Restore the previous request model context."""
+    _request_model.reset(token)
+
+
+def get_request_model() -> str:
+    return _request_model.get()
 
 # ── Cost estimates per 1 M tokens (USD) ─────────────────────────────────────
 
@@ -62,9 +102,44 @@ _TASK_MODEL_MAP: dict[TaskCategory, str] = {
     TaskCategory.CAREER_STRATEGY: "strong",
 }
 
+# Provider prefixes that must go through an OpenAI-compatible endpoint
+_OPENAI_COMPATIBLE: dict[str, str] = {
+    "deepseek": "https://api.deepseek.com",
+    "qwen": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+}
+
+# Same-provider fallback candidates, most capable first
+_PROVIDER_MODELS: dict[str, list[str]] = {
+    "gemini": [
+        "gemini/gemini-2.5-pro",
+        "gemini/gemini-2.5-flash",
+        "gemini/gemini-2.5-flash-lite",
+    ],
+    "openai": [
+        "openai/gpt-4o",
+        "openai/gpt-4.1-mini",
+        "openai/gpt-4o-mini",
+        "openai/gpt-4.1-nano",
+    ],
+    "groq": [
+        "groq/llama-3.3-70b-versatile",
+        "groq/mixtral-8x7b-32768",
+        "groq/llama-3.1-8b-instant",
+    ],
+    "deepseek": [
+        "deepseek/deepseek-reasoner",
+        "deepseek/deepseek-chat",
+    ],
+    "qwen": [
+        "openai/qwen-max",
+        "openai/qwen-plus",
+        "openai/qwen-turbo",
+    ],
+}
+
 
 class ModelRouter:
-    """Route tasks to the appropriate model and handle fallbacks."""
+    """Route tasks to the appropriate LangChain chat model and handle fallbacks."""
 
     def __init__(self) -> None:
         self._settings = get_settings()
@@ -76,17 +151,75 @@ class ModelRouter:
     def _model_for(self, category: TaskCategory, model_override: str | None = None) -> str:
         if model_override:
             return model_override
+        request_model = get_request_model()
+        if request_model:
+            return request_model
         tier = _TASK_MODEL_MAP.get(category, "fast")
         if tier == "strong":
             return self._settings.strong_model
         return self._settings.fast_model
 
     def _fallback_model(self, failed_model: str) -> str:
-        """Return the other tier's model as fallback."""
+        """Return a fallback model, preferring the same provider's models first."""
+        provider, _ = self._split_model(failed_model)
+        candidates = _PROVIDER_MODELS.get(provider, [])
+        for candidate in candidates:
+            if candidate and candidate != failed_model:
+                return candidate
+        # Last resort: the other tier's model
         settings = self._settings
         if failed_model == settings.fast_model:
             return settings.strong_model
         return settings.fast_model
+
+    @staticmethod
+    def _split_model(model: str) -> tuple[str, str]:
+        """Split a ``provider/model-name`` string into (provider, model_name)."""
+        provider, _, model_name = model.partition("/")
+        if not provider:
+            provider = "openai"
+        return provider, model_name or model
+
+    # ── LangChain model factory ────────────────────────────────────────────
+
+    def _build_chat_model(self, model: str, *, temperature: float, max_tokens: int, api_key: str = ""):
+        """Create the appropriate LangChain chat model for a provider/model string."""
+        provider, model_name = self._split_model(model)
+        key = api_key or None  # None -> fall back to env var if configured
+
+        if provider == "gemini":
+            from langchain_google_genai import ChatGoogleGenerativeAI
+
+            return ChatGoogleGenerativeAI(
+                model=model_name,
+                google_api_key=key,
+                temperature=temperature,
+                max_output_tokens=max_tokens,
+            )
+
+        if provider == "groq":
+            from langchain_groq import ChatGroq
+
+            return ChatGroq(
+                model=model_name,
+                api_key=key,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+
+        # OpenAI-compatible endpoints (OpenAI, DeepSeek, Qwen, …)
+        from langchain_openai import ChatOpenAI
+
+        base_url = _OPENAI_COMPATIBLE.get(provider)
+        if not base_url and "qwen" in model_name.lower():
+            base_url = _OPENAI_COMPATIBLE["qwen"]
+        return ChatOpenAI(
+            model=model_name,
+            api_key=key,
+            base_url=base_url,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
 
     # ── Cache ──────────────────────────────────────────────────────────────
 
@@ -161,30 +294,37 @@ class ModelRouter:
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> str | BaseModel:
-        """Execute a single litellm completion call."""
-        kwargs: dict[str, Any] = {
-            "model": model,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        }
+        """Execute a single LangChain chat-model completion call."""
+        # Prefer explicit api_key, then the per-request override, then env vars
+        effective_key = api_key or get_request_api_key() or ""
 
-        if api_key:
-            kwargs["api_key"] = api_key
+        chat = self._build_chat_model(
+            model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            api_key=effective_key,
+        )
         if api_base:
-            kwargs["api_base"] = api_base
-
-        if response_format is not None:
-            kwargs["response_format"] = response_format
+            # Allow an explicit base URL override (e.g. custom OpenAI-compatible endpoints)
+            chat.base_url = api_base
 
         t0 = time.monotonic()
-        response = await litellm.acompletion(**kwargs)
+        response = await chat.ainvoke(messages)
         elapsed = time.monotonic() - t0
 
-        # Track usage
-        usage = getattr(response, "usage", None)
-        prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
-        completion_tokens = getattr(usage, "completion_tokens", 0) or 0
+        content = ""
+        if isinstance(response.content, str):
+            content = response.content
+        elif isinstance(response.content, list):
+            # Gemini can return a list of content parts
+            content = "".join(
+                str(p.get("text", "")) for p in response.content if isinstance(p, dict)
+            )
+
+        # Track usage from LangChain's usage metadata when available
+        meta = getattr(response, "usage_metadata", None) or {}
+        prompt_tokens = meta.get("input_tokens", 0) or 0
+        completion_tokens = meta.get("output_tokens", 0) or 0
         total_tokens = prompt_tokens + completion_tokens
         cost = self._estimate_cost(model, prompt_tokens, completion_tokens)
 
@@ -206,13 +346,37 @@ class ModelRouter:
             elapsed,
         )
 
-        choice = response.choices[0]  # type: ignore[index]
-        content: str = choice.message.content or ""  # type: ignore[union-attr]
-
         if response_format is not None:
-            return response_format.model_validate_json(content)
+            return response_format.model_validate_json(self._extract_json(content))
 
         return content
+
+    @staticmethod
+    def _extract_json(text: str) -> str:
+        """Strip markdown code fences or surrounding prose from a JSON payload."""
+        if not text:
+            return text
+        stripped = text.strip()
+        if stripped.startswith("```"):
+            # Remove ```json ... ``` fences
+            lines = stripped.splitlines()
+            if lines and lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            stripped = "\n".join(lines).strip()
+        # Find the outermost JSON object/array if prose surrounds it
+        brace_start = stripped.find("{")
+        bracket_start = stripped.find("[")
+        starts = [p for p in (brace_start, bracket_start) if p >= 0]
+        start = min(starts) if starts else -1
+        end = -1
+        if start >= 0:
+            ends = [p for p in (stripped.rfind("}"), stripped.rfind("]")) if p >= 0]
+            end = max(ends) if ends else -1
+        if start >= 0 and end > start:
+            return stripped[start : end + 1]
+        return stripped
 
     # ── Structured helpers ─────────────────────────────────────────────────
 
@@ -259,10 +423,12 @@ class ModelRouter:
 
     @staticmethod
     def _resolve_api_base(model: str) -> str | None:
-        """Return the API base URL for models that need one (e.g. Qwen)."""
-        if model.startswith("openai/qwen-"):
-            return "https://dashscope.aliyuncs.com/compatible-mode/v1"
-        return None
+        """Return the API base URL for models that need one (e.g. Qwen/DeepSeek)."""
+        provider, model_name = ModelRouter._split_model(model)
+        base = _OPENAI_COMPATIBLE.get(provider)
+        if not base and "qwen" in model_name.lower():
+            base = _OPENAI_COMPATIBLE["qwen"]
+        return base
 
     async def stream(
         self,
@@ -273,58 +439,49 @@ class ModelRouter:
         temperature: float | None = None,
         max_tokens: int | None = None,
         api_key: str | None = None,
-    ):
-        """Yield text chunks from a streaming LLM completion."""
+    ) -> AsyncIterator[str]:
+        """Yield text chunks from a streaming LangChain chat completion."""
         settings = self._settings
         chosen_model = model or settings.fast_model
         temp = temperature if temperature is not None else settings.llm_temperature
         tokens = max_tokens or settings.llm_max_tokens
-        api_base = api_key and self._resolve_api_base(chosen_model)
 
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
         ]
 
-        kwargs: dict[str, Any] = {
-            "model": chosen_model,
-            "messages": messages,
-            "temperature": temp,
-            "max_tokens": tokens,
-            "stream": True,
-        }
-        if api_key:
-            kwargs["api_key"] = api_key
-        if api_base:
-            kwargs["api_base"] = api_base
+        effective_key = api_key or get_request_api_key() or ""
 
         try:
-            response = await litellm.acompletion(**kwargs)
-            async for chunk in response:  # type: ignore[union-attr]
-                delta = chunk.choices[0].delta if chunk.choices else None  # type: ignore[union-attr]
-                if delta and delta.content:
-                    yield delta.content
+            chat = self._build_chat_model(
+                chosen_model,
+                temperature=temp,
+                max_tokens=tokens,
+                api_key=effective_key,
+            )
+            async for chunk in chat.astream(messages):
+                text = getattr(chunk, "content", "") or ""
+                if isinstance(text, list):
+                    text = "".join(str(p.get("text", "")) for p in text if isinstance(p, dict))
+                if text:
+                    yield text
         except Exception as exc:
             logger.warning("Stream failed on %s: %s — trying fallback", chosen_model, exc)
             fallback = self._fallback_model(chosen_model)
             try:
-                fallback_base = self._resolve_api_base(fallback)
-                fb_kwargs: dict[str, Any] = {
-                    "model": fallback,
-                    "messages": messages,
-                    "temperature": temp,
-                    "max_tokens": tokens,
-                    "stream": True,
-                }
-                if api_key:
-                    fb_kwargs["api_key"] = api_key
-                if fallback_base:
-                    fb_kwargs["api_base"] = fallback_base
-                response = await litellm.acompletion(**fb_kwargs)
-                async for chunk in response:  # type: ignore[union-attr]
-                    delta = chunk.choices[0].delta if chunk.choices else None  # type: ignore[union-attr]
-                    if delta and delta.content:
-                        yield delta.content
+                fb_chat = self._build_chat_model(
+                    fallback,
+                    temperature=temp,
+                    max_tokens=tokens,
+                    api_key=effective_key,
+                )
+                async for chunk in fb_chat.astream(messages):
+                    text = getattr(chunk, "content", "") or ""
+                    if isinstance(text, list):
+                        text = "".join(str(p.get("text", "")) for p in text if isinstance(p, dict))
+                    if text:
+                        yield text
             except Exception as exc2:
                 logger.error("All streaming models failed: %s", exc2)
                 yield "I'm sorry, I encountered an error. Please try again."
@@ -345,7 +502,7 @@ class LLMService:
 
     async def stream(
         self, prompt: str, *, model: str | None = None, api_key: str | None = None, **kwargs: Any
-    ):
+    ) -> AsyncIterator[str]:
         async for chunk in self._router.stream(prompt, model=model, api_key=api_key, **kwargs):
             yield chunk
 

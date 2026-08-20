@@ -1,121 +1,79 @@
-"""Career planning, market intelligence, and skill-gap endpoints."""
+"""Career endpoints — field-based + resume-based plan generation via career_graph."""
 
 from __future__ import annotations
 
 import logging
-from uuid import UUID
+import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 
-from backend.core.models import CareerPlan as CareerPlanModel, MarketSnapshot
-from backend.core.schemas import CareerPlan, MarketSnapshot as MarketSnapshotSchema, UserProfile
-from backend.db.session import get_db
+from backend.core.schemas import UserProfile
+from backend.core.store import _career_plans, get_resume, get_generic, list_generic, store_generic
+from backend.graphs.orchestrator import run_career_pipeline
 from backend.security.auth import get_current_user
 
 logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/career")
 
 
-# ── Get career plan ──────────────────────────────────────────────────────────
+class _PlanBody(BaseModel):
+    target_role: str | None = None
+    resume_id: str | None = None
+    career_field: str | None = None
 
 
-@router.get("/plan")
-async def get_plan(
-    user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(
-        select(CareerPlanModel)
-        .where(CareerPlanModel.user_id == user.id)
-        .order_by(CareerPlanModel.created_at.desc())
-        .limit(1)
+@router.post("/plan")
+async def generate_plan(body: _PlanBody, user: UserProfile = Depends(get_current_user)):
+    """Generate a career plan either from a described field or from a resume."""
+    target = (body.target_role or body.career_field or "").strip()
+    if not target:
+        return {"error": "Provide a target_role or career_field"}, 400
+
+    resume_id = uuid.UUID(body.resume_id) if body.resume_id else None
+    resume_profile = None
+    if resume_id:
+        resume = get_resume(resume_id)
+        if resume is not None:
+            resume_profile = resume.parsed_profile
+
+    result = await run_career_pipeline(
+        user_id=user.id,
+        resume_id=resume_id or uuid.UUID("00000000-0000-0000-0000-000000000000"),
+        target_role=target,
+        resume_profile=resume_profile or {},
     )
-    plan = result.scalar_one_or_none()
-    if plan is None:
-        return {"plan": None, "message": "No career plan found. POST /api/career/plan to generate one."}
-    return {"plan": plan.plan_data, "target_role": plan.target_role, "created_at": plan.created_at.isoformat()}
 
+    plan = result.get("plan", {})
+    plan_id = str(uuid.uuid4())
+    store_generic(_career_plans, uuid.UUID(plan_id), {
+        "user_id": user.id,
+        "target_role": target,
+        "plan": plan,
+    })
 
-# ── Generate career plan ─────────────────────────────────────────────────────
-
-
-@router.post("/plan", status_code=status.HTTP_201_CREATED)
-async def generate_plan(
-    target_role: str = "Software Engineer",
-    user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    from backend.graphs.career_graph import career_pipeline
-
-    result = await career_pipeline.ainvoke(
-        {
-            "user_id": user.id,
-            "target_role": target_role,
-        }
-    )
-    return {"plan": result.get("plan", {}), "target_role": target_role}
-
-
-# ── Market intelligence ──────────────────────────────────────────────────────
-
-
-@router.get("/market")
-async def get_market_intelligence(
-    target_role: str = "Software Engineer",
-    user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(
-        select(MarketSnapshot)
-        .where(MarketSnapshot.target_role == target_role)
-        .order_by(MarketSnapshot.generated_at.desc())
-        .limit(1)
-    )
-    snapshot = result.scalar_one_or_none()
-    if snapshot is None:
-        return {"market": None, "message": "No market data available yet."}
     return {
-        "target_role": snapshot.target_role,
-        "skill_frequency": snapshot.skill_frequency,
-        "seniority_distribution": snapshot.seniority_distribution,
-        "salary_distribution": snapshot.salary_distribution,
-        "remote_percentage": snapshot.remote_percentage,
-        "technology_trends": snapshot.technology_trends,
-        "generated_at": snapshot.generated_at.isoformat(),
+        "plan_id": plan_id,
+        "target_role": target,
+        "plan": plan,
+        "skill_gaps": result.get("skill_gaps", []),
+        "recommendations": result.get("recommendations", []),
     }
 
 
-# ── Skill gap analysis ───────────────────────────────────────────────────────
+@router.get("/plan")
+async def get_plans(user: UserProfile = Depends(get_current_user)):
+    plans = list_generic(_career_plans, user.id)
+    return {"plans": [p.get("plan") for p in plans]}
+
+
+@router.get("/market")
+async def get_market(user: UserProfile = Depends(get_current_user)):
+    return {"error": "Market data not available in in-memory mode"}, 501
 
 
 @router.get("/skill-gaps")
-async def get_skill_gaps(
-    target_role: str = "Software Engineer",
-    user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    from backend.services.skill_gap_engine import analyze_skill_gaps
-    from backend.services.market_analyzer import analyze_market
-
-    # Get user's resume skills from DB
-    from backend.core.models import Resume
-    from sqlalchemy import select
-    resume_result = await db.execute(
-        select(Resume).where(Resume.user_id == user.id).order_by(Resume.created_at.desc()).limit(1)
-    )
-    resume = resume_result.scalar_one_or_none()
-    resume_skills = []
-    if resume and resume.parsed_profile:
-        resume_skills = [s.get("name", "") for s in resume.parsed_profile.get("skills", []) if isinstance(s, dict)]
-
-    # Get market data for target role
-    market = analyze_market(jobs=[], target_role=target_role)
-    market_skills = market.skill_frequency if hasattr(market, 'skill_frequency') else {}
-
-    # Derive role-required skills from market data
-    role_skills = list(market_skills.keys())[:20] if market_skills else []
-
-    gaps = analyze_skill_gaps(resume_skills, role_skills, market_skills)
-    return {"skill_gaps": [g.model_dump() for g in gaps], "target_role": target_role}
+async def get_skill_gaps(user: UserProfile = Depends(get_current_user)):
+    return {"error": "Skill gap analysis requires a resume"}, 501

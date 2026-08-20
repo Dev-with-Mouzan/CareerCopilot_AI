@@ -1,228 +1,177 @@
-"""Job search and matching endpoints."""
+"""Job endpoints — manual search + resume-based matching via job_graph pipeline."""
 
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Annotated
-from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
-from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.core.models import Job, JobMatch
 from backend.core.schemas import UserProfile
-from backend.db.session import get_db
+from backend.core.store import (
+    _job_matches,
+    get_resume,
+    list_generic,
+    list_resumes,
+    store_generic,
+    get_generic,
+)
+from backend.graphs.orchestrator import run_job_pipeline
 from backend.security.auth import get_current_user
 
 logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/jobs")
 
 
-# ── Background pipeline jobs (backward-compatible with old /api/run-crew) ────
-import time
-
-_MAX_PIPELINE_JOBS = 200  # prevent unbounded memory growth
-_pipeline_jobs: dict[str, dict] = {}
-
-
-def _cleanup_old_pipelines() -> None:
-    """Remove completed/failed pipelines older than 1 hour."""
-    now = time.time()
-    stale = [
-        pid for pid, job in _pipeline_jobs.items()
-        if job.get("status") in ("done", "failed")
-        and now - job.get("created_at_ts", now) > 3600
-    ]
-    for pid in stale:
-        del _pipeline_jobs[pid]
+class _SearchBody(BaseModel):
+    target_role: str | None = None
+    keywords: str | None = None
+    location: str | None = None
+    resume_id: str | None = None
 
 
-def _register_pipeline(pipeline_id: str, job: dict) -> None:
-    """Register a pipeline job, evicting old ones if at capacity."""
-    _cleanup_old_pipelines()
-    if len(_pipeline_jobs) >= _MAX_PIPELINE_JOBS:
-        # Evict oldest completed job
-        for pid, j in list(_pipeline_jobs.items()):
-            if j.get("status") in ("done", "failed"):
-                del _pipeline_jobs[pid]
-                break
-    _pipeline_jobs[pipeline_id] = job
-
-
-# ── Search & match ───────────────────────────────────────────────────────────
-
-
-class JobSearchRequest(BaseModel):
-    target_role: str = "Software Engineer"
-    keywords: str = ""
-
-
-@router.post("/search", status_code=status.HTTP_201_CREATED)
+@router.post("/search")
 async def search_jobs(
-    body: JobSearchRequest,
-    background_tasks: BackgroundTasks,
+    body: _SearchBody,
     user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
-    """Trigger the job search + matching graph.  Returns a pollable pipeline ID."""
-    import uuid
+    """Search jobs either manually (keywords/location) or based on a resume."""
+    target = (body.target_role or body.keywords or "").strip()
+    resume_id = uuid.UUID(body.resume_id) if body.resume_id else None
 
-    pipeline_id = str(uuid.uuid4())
-    _register_pipeline(pipeline_id, {
-        "status": "running",
-        "result": None,
-        "error": None,
-        "user_id": str(user.id),
-        "created_at_ts": time.time(),
-    })
+    # Load resume profile if resume_id provided for matching
+    resume_profile = None
+    if resume_id:
+        resume = get_resume(resume_id)
+        if resume is not None:
+            resume_profile = resume.parsed_profile
 
-    background_tasks.add_task(
-        _run_job_graph, pipeline_id, str(user.id), body.target_role, body.keywords.split(",")
+    # Derive search keywords from the resume when no explicit target given
+    if not target and resume_profile:
+        skills = [
+            s.get("name", "")
+            for s in resume_profile.get("skills", [])
+            if isinstance(s, dict) and s.get("name")
+        ][:12]
+        target_roles = resume_profile.get("target_roles", []) or []
+        if target_roles:
+            target = target_roles[0]
+        elif resume_profile.get("experience"):
+            latest = resume_profile["experience"][0]
+            if isinstance(latest, dict):
+                target = latest.get("title", "")
+        if skills:
+            target = (target + " " + " ".join(skills[:6])).strip()
+
+    if not target:
+        target = "software engineer"
+
+    result = await run_job_pipeline(
+        user_id=user.id,
+        resume_id=resume_id or uuid.UUID("00000000-0000-0000-0000-000000000000"),
+        target_role=target,
+        resume_profile=resume_profile or {},
     )
+
+    matched = result.get("matched_jobs", [])
+    pipeline_id = str(uuid.uuid4())
+    store_generic(_job_matches, uuid.UUID(pipeline_id), {
+        "user_id": user.id,
+        "target_role": target,
+        "jobs": matched,
+        "recommendations": result.get("recommendations", []),
+    })
 
     return {
         "pipeline_id": pipeline_id,
-        "status": "running",
-        "message": "Job search started. Poll GET /api/status/{pipeline_id} for results.",
+        "status": "completed",
+        "jobs": matched,
+        "recommendations": result.get("recommendations", []),
     }
-
-
-async def _run_job_graph(pipeline_id: str, user_id: str, target_role: str, keywords: list[str]) -> None:
-    try:
-        from backend.graphs.job_graph import job_pipeline
-
-        result = await job_pipeline.ainvoke(
-            {
-                "user_id": UUID(user_id),
-                "target_role": target_role,
-                "query_keywords": keywords,
-            }
-        )
-        _pipeline_jobs[pipeline_id]["status"] = "done"
-        _pipeline_jobs[pipeline_id]["result"] = result.get("matched_jobs", [])
-    except Exception as exc:
-        _pipeline_jobs[pipeline_id]["status"] = "failed"
-        _pipeline_jobs[pipeline_id]["error"] = str(exc)
-        logger.exception("Job graph failed for pipeline %s", pipeline_id)
-
-
-# ── Backward-compatible status endpoint ──────────────────────────────────────
 
 
 @router.get("/status/{pipeline_id}")
-async def get_pipeline_status(pipeline_id: str):
-    if pipeline_id not in _pipeline_jobs:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pipeline not found")
-    job = _pipeline_jobs[pipeline_id]
-    return {
-        "job_id": pipeline_id,
-        "status": job["status"],
-        "result": job.get("result"),
-        "error": job.get("error"),
-    }
-
-
-# ── List matched jobs ────────────────────────────────────────────────────────
+async def job_status(pipeline_id: str):
+    data = get_generic(_job_matches, uuid.UUID(pipeline_id)) if _is_valid_uuid(pipeline_id) else None
+    if data is None:
+        return {"pipeline_id": pipeline_id, "status": "pending", "jobs": []}
+    return {"pipeline_id": pipeline_id, "status": "completed", "jobs": data.get("jobs", [])}
 
 
 @router.get("")
-async def list_jobs(
-    user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-    offset: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
-):
-    result = await db.execute(
-        select(JobMatch, Job)
-        .join(Job, JobMatch.job_id == Job.id)
-        .where(JobMatch.user_id == user.id)
-        .order_by(JobMatch.overall_score.desc())
-        .offset(offset)
-        .limit(limit)
-    )
-    rows = result.all()
-    return {
-        "jobs": [
-            {
-                "job_id": str(match.job_id),
-                "title": job.title,
-                "company": job.company,
-                "location": job.location,
-                "remote": job.remote,
-                "overall_score": match.overall_score,
-                "skill_score": match.skill_score,
-                "missing_skills": match.missing_skills,
-                "source_url": job.source_url,
-            }
-            for match, job in rows
-        ],
-        "offset": offset,
-        "limit": limit,
-    }
-
-
-# ── Get job details ──────────────────────────────────────────────────────────
+async def list_jobs(user: UserProfile = Depends(get_current_user)):
+    all_matches = list_generic(_job_matches, user.id)
+    jobs = []
+    for m in all_matches:
+        jobs.extend(m.get("jobs", []))
+    return {"jobs": jobs, "total": len(jobs)}
 
 
 @router.get("/{job_id}")
-async def get_job(
-    job_id: UUID,
-    user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(select(Job).where(Job.id == job_id))
-    job = result.scalar_one_or_none()
-    if job is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
-
-    match_result = await db.execute(
-        select(JobMatch).where(JobMatch.job_id == job_id, JobMatch.user_id == user.id)
-    )
-    match = match_result.scalar_one_or_none()
-
-    return {
-        "id": str(job.id),
-        "title": job.title,
-        "company": job.company,
-        "location": job.location,
-        "remote": job.remote,
-        "description": job.description,
-        "skills": job.skills,
-        "salary_min": job.salary_min,
-        "salary_max": job.salary_max,
-        "employment_type": job.employment_type,
-        "seniority": job.seniority,
-        "source_url": job.source_url,
-        "match": {
-            "overall_score": match.overall_score,
-            "skill_score": match.skill_score,
-            "experience_score": match.experience_score,
-            "reasoning": match.reasoning,
-            "missing_skills": match.missing_skills,
-        }
-        if match
-        else None,
-    }
-
-
-# ── Analyze specific job match ──────────────────────────────────────────────
+async def get_job(job_id: uuid.UUID):
+    return {"error": "Job not found"}, 404
 
 
 @router.post("/{job_id}/analyze")
-async def analyze_job_match(
-    job_id: UUID,
-    user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Run ATS analysis for the user's resume against this job."""
+async def analyze_job(job_id: uuid.UUID, user: UserProfile = Depends(get_current_user)):
+    """Run ATS analysis of the user's resume against a single matched job."""
     from backend.graphs.ats_graph import ats_pipeline
 
-    result = await ats_pipeline.ainvoke(
-        {
-            "user_id": user.id,
-            "job_id": job_id,
-        }
-    )
-    return result.get("report", {})
+    # Find the job across stored pipelines for this user
+    target_job = None
+    for match in list_generic(_job_matches, user.id):
+        for job in match.get("jobs", []):
+            jid = job.get("id") or job.get("job_id") or job.get("source_job_id")
+            if jid is not None and str(jid) == str(job_id):
+                target_job = job
+                break
+        if target_job:
+            break
+
+    if target_job is None:
+        return {"error": "Job not found"}, 404
+
+    resume = None
+    resumes = list_resumes(user.id)
+    resume = resumes[0] if resumes else None
+    if resume is None:
+        return {"error": "Upload a resume first to run ATS analysis"}, 400
+
+    job_desc = target_job.get("description") or ""
+    if not job_desc:
+        return {"error": "This job has no description to analyze against"}, 400
+
+    state = {
+        "user_id": user.id,
+        "resume_id": resume.id,
+        "job_id": job_id,
+        "resume_text": resume.raw_text,
+        "job_description": job_desc,
+    }
+    result = await ats_pipeline.ainvoke(state)
+    report = result.get("report", {}) or {}
+
+    # Merge into the job's existing match for display
+    if "match" not in target_job:
+        target_job["match"] = {}
+    target_job["match"]["overall_score"] = report.get("overall_score", 0) / 100
+    target_job["match"]["missing_skills"] = report.get("missing_skills", [])
+    target_job["match"]["missing_keywords"] = report.get("missing_keywords", [])
+    target_job["match"]["ats_report"] = report
+
+    return {
+        "job_id": str(job_id),
+        "report": report,
+        "recommendations": report.get("recommendations", []),
+    }
+
+
+def _is_valid_uuid(value: str) -> bool:
+    try:
+        uuid.UUID(value)
+        return True
+    except ValueError:
+        return False

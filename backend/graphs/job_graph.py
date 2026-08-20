@@ -10,6 +10,7 @@ Parallel source collection via JobSourceManager. Deterministic scoring; LLM only
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Literal
 
 from langgraph.graph import END, START, StateGraph
@@ -43,17 +44,31 @@ _source_manager.register_default_sources()
 
 
 async def extract_keywords_node(state: JobState) -> dict:
-    """Extract search keywords from the target role description."""
+    """Extract search keywords from the target role description and/or resume profile."""
     target = state.get("target_role", "")
-    resume_id = state.get("resume_id")
+    profile = state.get("resume_profile", {}) or {}
 
-    # Extract skills from any existing resume profile if available
-    # For now, derive keywords from the target role string
+    # Pull skills directly from the resume profile when available
+    resume_skills = [
+        s.get("name", "")
+        for s in profile.get("skills", [])
+        if isinstance(s, dict) and s.get("name")
+    ]
+
     keywords = extract_skills_from_description(target)
+    keywords = list(dict.fromkeys(keywords))
+
+    # Merge in resume skills (deduplicated, preserving order)
+    for skill in resume_skills:
+        if skill.lower() not in [k.lower() for k in keywords]:
+            keywords.append(skill)
 
     # Ensure the target role itself is included
     if target and target.lower() not in [k.lower() for k in keywords]:
         keywords.insert(0, target)
+
+    # Cap keyword count to keep queries focused
+    keywords = keywords[:20]
 
     return {"query_keywords": keywords}
 
@@ -79,7 +94,12 @@ async def collect_from_sources_node(state: JobState) -> dict:
 
 
 async def normalize_jobs_node(state: JobState) -> dict:
-    """Normalize raw job listings from each source into Job schema."""
+    """Normalize raw job listings from each source into Job schema.
+
+    Sources already return normalized ``Job`` objects — those are passed
+    through unchanged so fields like ``source_url`` are preserved. Only truly
+    raw listings get run through the source normalizer.
+    """
     raw_results = state.get("source_results", {})
     normalized: list[dict] = []
 
@@ -93,6 +113,9 @@ async def normalize_jobs_node(state: JobState) -> dict:
         normalizer = normalizers.get(source_name, normalize_generic_job)
         for raw in raw_jobs:
             try:
+                if isinstance(raw, dict) and raw.get("created_at") is not None:
+                    normalized.append(raw)
+                    continue
                 job = normalizer(raw)
                 normalized.append(job.model_dump())
             except Exception as exc:
@@ -162,9 +185,18 @@ async def score_matches_node(state: JobState) -> dict:
     if not candidates:
         return {"matched_jobs": []}
 
-    # Load resume profile from state (would normally come from DB)
-    resume_text = state.get("query_keywords", [])
-    resume_skills = set(k.lower() for k in resume_text)
+    # Use the resume profile skills as the baseline for matching
+    profile = state.get("resume_profile", {}) or {}
+    resume_skill_names = [
+        s.get("name", "")
+        for s in profile.get("skills", [])
+        if isinstance(s, dict) and s.get("name")
+    ]
+    if not resume_skill_names:
+        # Fall back to query keywords when no resume profile available
+        resume_skill_names = state.get("query_keywords", [])
+
+    resume_skills = set(s.lower() for s in resume_skill_names)
 
     matched: list[dict] = []
     embedding_service = get_embedding_service()
@@ -175,7 +207,8 @@ async def score_matches_node(state: JobState) -> dict:
 
         # Skill overlap score
         if job_skills:
-            overlap = len(resume_skills & job_skills) / len(job_skills)
+            overlap = len(resume_skills & job_skills) / len(job_skills) if job_skills else 0.0
+            overlap = min(overlap, 1.0)
         else:
             overlap = 0.5  # default if no skills listed
 
@@ -188,7 +221,7 @@ async def score_matches_node(state: JobState) -> dict:
         job_emb = job_data.get("_embedding")
         if job_emb and resume_skills:
             # Create a simple query embedding from resume keywords
-            query_text = " ".join(resume_skills)
+            query_text = " ".join(list(resume_skills)[:15])
             try:
                 query_emb = embedding_service.generate_embedding(query_text)
                 semantic_score = compute_similarity(query_emb, job_emb)
@@ -201,7 +234,7 @@ async def score_matches_node(state: JobState) -> dict:
         missing = list(job_skills - resume_skills)
 
         match = JobMatch(
-            job_id=job_data.get("id") or "",
+            job_id=job_data.get("id") or uuid.uuid4(),
             overall_score=round(overall, 3),
             skill_score=round(overlap, 3),
             experience_score=0.8,  # default; would need DB data

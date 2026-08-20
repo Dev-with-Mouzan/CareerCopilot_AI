@@ -7,7 +7,7 @@ import logging
 from typing import Sequence
 
 from backend.core.schemas import Job
-from backend.services.job_deduplicator import deduplicate_jobs
+from backend.services.job_deduplicator import deduplicate as deduplicate_jobs
 from backend.services.job_sources.base import AbstractJobSource, SourceConfig, SourceError
 from backend.services.job_sources.generic_scraper import GenericScraperSource
 from backend.services.job_sources.jobicy import JobicySource
@@ -41,7 +41,6 @@ class JobSourceManager:
         self.register(RemotiveSource())
         self.register(JobicySource())
         self.register(LinkedInSource())
-        self.register(GenericScraperSource())
 
     def add_custom_scraper(self, url: str) -> None:
         source = GenericScraperSource(target_url=url)

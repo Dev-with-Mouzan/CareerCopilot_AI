@@ -1,8 +1,8 @@
 """Async database session management with SQLAlchemy.
 
 Uses asyncpg with Supabase pgbouncer compatibility:
-- statement_cache_size=0 disables prepared statements
-- NullPool avoids connection reuse across pgbouncer transactions
+- prepared_statement_cache_size=0 disables prepared statements
+- NullPool for SQLite, default pool for PostgreSQL
 """
 
 from __future__ import annotations
@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncGenerator
 
-from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -27,18 +26,20 @@ settings = get_settings()
 _url = settings.postgres_url
 _is_sqlite = _url.startswith("sqlite")
 
-engine = create_async_engine(
-    _url,
-    echo=settings.debug,
-    pool_pre_ping=not _is_sqlite,
-    poolclass=NullPool,
-)
-
-
-if not _is_sqlite:
-    @event.listens_for(engine.sync_engine, "connect")
-    def _set_pg_statement_cache(dbapi_conn, _connection_record):
-        dbapi_conn.statement_cache_size = 0
+if _is_sqlite:
+    engine = create_async_engine(
+        _url,
+        echo=settings.debug,
+        pool_pre_ping=False,
+        poolclass=NullPool,
+    )
+else:
+    engine = create_async_engine(
+        _url,
+        echo=settings.debug,
+        pool_pre_ping=True,
+        connect_args={"prepared_statement_cache_size": 0},
+    )
 
 async_session_factory = async_sessionmaker(
     engine,

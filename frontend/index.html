@@ -35,97 +35,6 @@
         </div>
     </div>
 
-    <!-- Auth Modal -->
-    <div id="auth-modal" class="modal-overlay">
-        <div class="modal glass-card">
-            <div class="modal-header">
-                <div class="logo-large">
-                    <img src="logo.png" alt="CareerCopilot AI" class="logo-img-lg">
-                    <h1>CareerCopilot<span class="accent">AI</span></h1>
-                </div>
-                <p class="modal-subtitle">Your AI-powered career command center</p>
-            </div>
-            <div class="auth-tabs">
-                <button class="auth-tab active" data-tab="login">Sign In</button>
-                <button class="auth-tab" data-tab="register">Sign Up</button>
-            </div>
-            <form id="login-form" class="auth-form">
-                <div class="form-group">
-                    <label for="login-email">Email</label>
-                    <div class="input-wrapper">
-                        <i class="fas fa-envelope"></i>
-                        <input type="email" id="login-email" placeholder="you@example.com" required>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="login-password">Password</label>
-                    <div class="input-wrapper">
-                        <i class="fas fa-lock"></i>
-                        <input type="password" id="login-password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" required>
-                        <button type="button" class="auth-pw-toggle" data-target="login-password"><i class="fas fa-eye"></i></button>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary btn-full">
-                    <span>Sign In</span>
-                    <i class="fas fa-arrow-right"></i>
-                </button>
-            </form>
-            <form id="register-form" class="auth-form hidden">
-                <div class="form-group">
-                    <label for="reg-name">Full Name</label>
-                    <div class="input-wrapper">
-                        <i class="fas fa-user"></i>
-                        <input type="text" id="reg-name" placeholder="John Doe" required>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="reg-email">Email <span style="color:var(--text-muted);font-size:0.7rem">(Gmail only)</span></label>
-                    <div class="input-wrapper">
-                        <i class="fas fa-envelope"></i>
-                        <input type="email" id="reg-email" placeholder="you@gmail.com" required>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="reg-password">Password</label>
-                    <div class="input-wrapper">
-                        <i class="fas fa-lock"></i>
-                        <input type="password" id="reg-password" placeholder="Min 8 chars, uppercase, number, symbol" required minlength="8">
-                        <button type="button" class="auth-pw-toggle" data-target="reg-password"><i class="fas fa-eye"></i></button>
-                    </div>
-                    <div class="pw-strength" id="pw-strength">
-                        <div class="pw-strength-bar"><div class="pw-strength-fill" id="pw-strength-fill"></div></div>
-                        <span class="pw-strength-text" id="pw-strength-text"></span>
-                    </div>
-                    <div class="pw-requirements" id="pw-requirements">
-                        <div class="pw-req" id="pw-req-length"><i class="fas fa-circle"></i> 8+ characters</div>
-                        <div class="pw-req" id="pw-req-upper"><i class="fas fa-circle"></i> Uppercase letter</div>
-                        <div class="pw-req" id="pw-req-number"><i class="fas fa-circle"></i> Number</div>
-                        <div class="pw-req" id="pw-req-symbol"><i class="fas fa-circle"></i> Symbol (!@#$...)</div>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="reg-confirm-password">Confirm Password</label>
-                    <div class="input-wrapper">
-                        <i class="fas fa-lock"></i>
-                        <input type="password" id="reg-confirm-password" placeholder="Re-enter password" required>
-                        <button type="button" class="auth-pw-toggle" data-target="reg-confirm-password"><i class="fas fa-eye"></i></button>
-                    </div>
-                    <div class="pw-match" id="pw-match"></div>
-                </div>
-                <button type="submit" class="btn btn-primary btn-full">
-                    <span>Create Account</span>
-                    <i class="fas fa-arrow-right"></i>
-                </button>
-            </form>
-            <div id="auth-error" class="error-banner hidden"></div>
-            <div style="text-align:center;margin-top:16px">
-                <button class="btn btn-ghost btn-sm" onclick="skipAuth()" style="color:var(--text-muted);border:none;font-size:0.8rem">
-                    Skip for now →
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- Main App -->
     <div id="app">
         <!-- Top Navigation -->
@@ -145,25 +54,16 @@
                         <button class="nav-link" data-section="career">Career</button>
                         <button class="nav-link" data-section="interview">Interview</button>
                         <button class="nav-link" data-section="cover-letter">Cover Letter</button>
+                        <button class="nav-link" data-section="reviews">Reviews</button>
                     </div>
                 </div>
                 <div class="nav-right">
                     <button class="hamburger-btn" id="hamburger-btn" aria-label="Menu">
                         <span></span><span></span><span></span>
                     </button>
-                    <div id="nav-guest" class="nav-guest">
-                        <button class="btn btn-primary btn-sm" id="nav-login-btn">
-                            <i class="fas fa-sign-in-alt"></i> Login
-                        </button>
-                    </div>
-                    <div id="nav-user" class="nav-user hidden">
-                        <button class="nav-settings-icon" id="settings-toggle" title="Settings">
-                            <i class="fas fa-cog"></i>
-                        </button>
-                        <div class="nav-user-avatar-wrap" id="user-menu">
-                            <div class="user-avatar" id="nav-avatar"><span id="user-initial">U</span></div>
-                        </div>
-                    </div>
+                    <button class="nav-settings-icon" id="settings-toggle" title="Settings">
+                        <i class="fas fa-cog"></i>
+                    </button>
                 </div>
             </div>
         </nav>
@@ -321,31 +221,53 @@
 
                 <!-- Progress -->
                 <div class="cf-section">
-                    <div class="cf-progress-card glass-card">
-                        <div class="cf-progress-header">
-                            <span class="cf-progress-label">Your Career Journey</span>
-                            <span class="cf-progress-pct" id="dash-progress-pct">25%</span>
+                    <div class="cf-journey-card glass-card">
+                        <div class="cf-journey-header">
+                            <div class="cf-journey-title">
+                                <div class="cf-journey-icon"><i class="fas fa-route"></i></div>
+                                <div>
+                                    <div class="cf-journey-label">Your Career Journey</div>
+                                    <div class="cf-journey-sub">Complete each step to unlock your full career plan</div>
+                                </div>
+                            </div>
+                            <div class="cf-journey-pct" id="dash-progress-pct">25%</div>
                         </div>
                         <div class="cf-progress-track">
                             <div class="cf-progress-fill" id="dash-progress-fill" style="width:25%"></div>
                         </div>
-                        <div class="cf-progress-steps">
-                            <div class="cf-progress-step done">
-                                <div class="cf-progress-dot"></div>
-                                <span>Profile</span>
-                            </div>
-                            <div class="cf-progress-step">
-                                <div class="cf-progress-dot"></div>
-                                <span>Resume</span>
-                            </div>
-                            <div class="cf-progress-step">
-                                <div class="cf-progress-dot"></div>
-                                <span>Jobs</span>
-                            </div>
-                            <div class="cf-progress-step">
-                                <div class="cf-progress-dot"></div>
-                                <span>Apply</span>
-                            </div>
+                        <div class="cf-journey-steps">
+                            <button class="cf-journey-step" data-jstep="resume" onclick="navigateTo('resume')">
+                                <div class="cf-journey-dot">
+                                    <i class="fas fa-file-alt"></i>
+                                    <i class="fas fa-check cf-journey-check"></i>
+                                </div>
+                                <span class="cf-journey-step-label">Resume</span>
+                                <span class="cf-journey-step-sub">Upload & analyze</span>
+                            </button>
+                            <button class="cf-journey-step" data-jstep="jobs" onclick="navigateTo('jobs')">
+                                <div class="cf-journey-dot">
+                                    <i class="fas fa-briefcase"></i>
+                                    <i class="fas fa-check cf-journey-check"></i>
+                                </div>
+                                <span class="cf-journey-step-label">Jobs</span>
+                                <span class="cf-journey-step-sub">Find matches</span>
+                            </button>
+                            <button class="cf-journey-step" data-jstep="career" onclick="navigateTo('career')">
+                                <div class="cf-journey-dot">
+                                    <i class="fas fa-route"></i>
+                                    <i class="fas fa-check cf-journey-check"></i>
+                                </div>
+                                <span class="cf-journey-step-label">Career Plan</span>
+                                <span class="cf-journey-step-sub">Get roadmap</span>
+                            </button>
+                            <button class="cf-journey-step" data-jstep="interview" onclick="navigateTo('interview')">
+                                <div class="cf-journey-dot">
+                                    <i class="fas fa-comments"></i>
+                                    <i class="fas fa-check cf-journey-check"></i>
+                                </div>
+                                <span class="cf-journey-step-label">Interview</span>
+                                <span class="cf-journey-step-sub">Prep & practice</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -404,7 +326,7 @@
                         <h2 class="cf-section-title">What Users Say</h2>
                         <p class="cf-section-subtitle">Join thousands of successful job seekers</p>
                     </div>
-                    <div class="cf-testimonials-grid">
+                    <div class="cf-testimonials-grid" id="home-testimonials">
                         <div class="cf-testimonial glass-card">
                             <div class="cf-testi-quote"><i class="fas fa-quote-left"></i></div>
                             <p class="cf-testi-text">CareerCopilot completely changed my job search. The AI analysis found weaknesses in my resume I never noticed. Got 3 interview calls in the first week.</p>
@@ -593,37 +515,56 @@
                         <p class="section-subtitle">Discover AI-matched opportunities</p>
                     </div>
                 </div>
-                <div class="jobs-hero glass-card">
-                    <div class="jobs-hero-icon"><i class="fas fa-search"></i></div>
-                    <h3 class="jobs-hero-title">Find Your Perfect Role</h3>
-                    <p class="jobs-hero-sub">Search thousands of jobs matched to your skills and experience</p>
-                    <div class="jobs-search-bar">
-                        <div class="jobs-search-field">
-                            <i class="fas fa-search"></i>
-                            <input type="text" id="job-keywords" placeholder="Job title, skill, or company">
+                <div class="jobs-content">
+                    <div class="jobs-generator glass-card">
+                        <div class="jobs-gen-title"><i class="fas fa-wand-magic-sparkles"></i> Find Your Perfect Role</div>
+                        <div class="cl-mode-tabs">
+                            <button class="cl-mode-btn active" data-mode="manual" id="jobs-mode-manual">
+                                <i class="fas fa-search"></i> Manual Search
+                            </button>
+                            <button class="cl-mode-btn" data-mode="resume" id="jobs-mode-resume">
+                                <i class="fas fa-file-alt"></i> From My Resume
+                            </button>
                         </div>
-                        <div class="jobs-search-divider"></div>
-                        <div class="jobs-search-field">
-                            <i class="fas fa-map-marker-alt"></i>
-                            <input type="text" id="job-location" placeholder="City, state, or remote">
+                        <div id="jobs-manual-form">
+                            <div class="form-group">
+                                <label>Job Title / Keywords</label>
+                                <div class="input-wrapper">
+                                    <i class="fas fa-briefcase"></i>
+                                    <input type="text" id="job-keywords" placeholder="e.g. Software Engineer, Data Scientist, Python">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Location <span style="color:var(--text-muted);font-size:0.75rem">(optional)</span></label>
+                                <div class="input-wrapper">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <input type="text" id="job-location" placeholder="City, state, or remote">
+                                </div>
+                            </div>
                         </div>
-                        <button class="btn btn-primary jobs-search-btn" id="search-jobs-btn">
-                            <i class="fas fa-search"></i> Search
-                        </button>
+                        <div id="jobs-resume-hint" class="hidden" style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:16px">
+                            <i class="fas fa-info-circle"></i> Your uploaded resume will be used to find jobs matched to your skills.
+                            <span id="jobs-resume-status"></span>
+                        </div>
+                        <div style="text-align:center;margin-top:8px">
+                            <button class="btn btn-primary btn-lg" id="search-jobs-btn">
+                                <i class="fas fa-magic"></i> Search Jobs
+                            </button>
+                        </div>
+                        <div class="jobs-quick-tags" style="margin-top:18px">
+                            <span class="jobs-quick-tag" onclick="quickJobSearch('Software Engineer')"><i class="fas fa-code"></i> Software Engineer</span>
+                            <span class="jobs-quick-tag" onclick="quickJobSearch('Data Scientist')"><i class="fas fa-chart-bar"></i> Data Scientist</span>
+                            <span class="jobs-quick-tag" onclick="quickJobSearch('Product Manager')"><i class="fas fa-lightbulb"></i> Product Manager</span>
+                            <span class="jobs-quick-tag" onclick="quickJobSearch('Designer')"><i class="fas fa-paint-brush"></i> Designer</span>
+                            <span class="jobs-quick-tag" onclick="quickJobSearch('Remote')"><i class="fas fa-globe"></i> Remote</span>
+                        </div>
                     </div>
-                    <div class="jobs-quick-tags">
-                        <span class="jobs-quick-tag" onclick="quickJobSearch('Software Engineer')"><i class="fas fa-code"></i> Software Engineer</span>
-                        <span class="jobs-quick-tag" onclick="quickJobSearch('Data Scientist')"><i class="fas fa-chart-bar"></i> Data Scientist</span>
-                        <span class="jobs-quick-tag" onclick="quickJobSearch('Product Manager')"><i class="fas fa-lightbulb"></i> Product Manager</span>
-                        <span class="jobs-quick-tag" onclick="quickJobSearch('Designer')"><i class="fas fa-paint-brush"></i> Designer</span>
-                        <span class="jobs-quick-tag" onclick="quickJobSearch('Remote')"><i class="fas fa-globe"></i> Remote</span>
+                    <div class="jobs-list" id="jobs-list"></div>
+                    <div id="jobs-empty" class="empty-state glass-card">
+                        <div class="empty-state-icon"><i class="fas fa-briefcase"></i></div>
+                        <h3>No jobs found yet</h3>
+                        <p>Search for jobs or use a quick tag above to get started</p>
                     </div>
-                </div>
-                <div class="jobs-list" id="jobs-list"></div>
-                <div id="jobs-empty" class="empty-state glass-card">
-                    <div class="empty-state-icon"><i class="fas fa-briefcase"></i></div>
-                    <h3>No jobs found yet</h3>
-                    <p>Search for jobs or use a quick tag above to get started</p>
                 </div>
             </section>
 
@@ -638,16 +579,35 @@
                     </div>
                 </div>
                 <div class="career-content">
-                    <div class="glass-card" style="text-align:center;padding:40px">
-                        <div style="font-size:2.5rem;margin-bottom:16px"><i class="fas fa-wand-magic-sparkles" style="color:var(--accent-primary)"></i></div>
-                        <h3 style="margin-bottom:8px">Generate Your Career Plan</h3>
-                        <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:24px">Upload your resume first, then let AI create a personalized action plan</p>
-                        <button class="btn btn-primary" id="generate-plan-btn">
-                            <i class="fas fa-magic"></i> Generate Plan
-                        </button>
-                        <button class="btn btn-ghost" id="export-plan-btn" style="display:none">
-                            <i class="fas fa-download"></i> Export PDF
-                        </button>
+                    <div class="career-generator glass-card">
+                        <div class="career-gen-title"><i class="fas fa-wand-magic-sparkles"></i> Generate Your Career Plan</div>
+                        <div class="career-mode-tabs">
+                            <button class="career-mode-btn active" data-mode="field" id="career-mode-field">
+                                <i class="fas fa-bullseye"></i> Describe Your Field
+                            </button>
+                            <button class="career-mode-btn" data-mode="resume" id="career-mode-resume">
+                                <i class="fas fa-file-alt"></i> From My Resume
+                            </button>
+                        </div>
+                        <div id="career-field-form" class="form-group" style="margin-bottom:16px">
+                            <label>Target Career Field / Role</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-bullseye"></i>
+                                <input type="text" id="career-target-field" placeholder="e.g. Senior Data Engineer, Machine Learning, Cloud Architect">
+                            </div>
+                        </div>
+                        <div id="career-resume-hint" class="hidden" style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:16px">
+                            <i class="fas fa-info-circle"></i> Your uploaded resume will be used to build a personalized career plan.
+                            <span id="career-resume-status"></span>
+                        </div>
+                        <div style="text-align:center;margin-top:8px">
+                            <button class="btn btn-primary btn-lg" id="generate-plan-btn">
+                                <i class="fas fa-magic"></i> Generate Plan
+                            </button>
+                            <button class="btn btn-ghost" id="export-plan-btn" style="display:none">
+                                <i class="fas fa-download"></i> Export PDF
+                            </button>
+                        </div>
                     </div>
                     <div id="career-plan-result" class="hidden" style="margin-top:20px"></div>
                 </div>
@@ -664,13 +624,35 @@
                     </div>
                 </div>
                 <div class="interview-content">
-                    <div class="glass-card" style="text-align:center;padding:40px">
-                        <div style="font-size:2.5rem;margin-bottom:16px"><i class="fas fa-user-tie" style="color:var(--accent-primary)"></i></div>
-                        <h3 style="margin-bottom:8px">Start Mock Interview</h3>
-                        <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:24px">Get AI-generated interview questions based on your resume and target role</p>
-                        <button class="btn btn-primary" id="start-interview-btn">
-                            <i class="fas fa-play"></i> Start Interview
-                        </button>
+                    <div class="interview-setup glass-card" id="interview-setup-card">
+                        <div class="interview-setup-title"><i class="fas fa-user-tie"></i> Start Mock Interview</div>
+                        <div class="form-group">
+                            <label>Job Role</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-user-tie"></i>
+                                <input type="text" id="interview-job-role" placeholder="e.g. Senior Software Engineer">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Job Description <span style="color:var(--text-muted);font-size:0.75rem">(optional)</span></label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-align-left"></i>
+                                <textarea id="interview-job-desc" rows="4" placeholder="Paste the job description to tailor questions..."></textarea>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Interview Type</label>
+                            <div class="cl-tone-selector" id="interview-type-selector">
+                                <button class="cl-tone-btn" data-type="technical"><i class="fas fa-code"></i> Technical</button>
+                                <button class="cl-tone-btn" data-type="behavioral"><i class="fas fa-users"></i> Behavioral</button>
+                                <button class="cl-tone-btn active" data-type="mixed"><i class="fas fa-layer-group"></i> Mixed</button>
+                            </div>
+                        </div>
+                        <div style="text-align:center;margin-top:8px">
+                            <button class="btn btn-primary btn-lg" id="start-interview-btn">
+                                <i class="fas fa-play"></i> Start Interview
+                            </button>
+                        </div>
                     </div>
                     <div id="interview-questions" class="hidden" style="margin-top:20px"></div>
                 </div>
@@ -689,19 +671,40 @@
                 <div class="cl-container">
                     <div class="cl-generator glass-card">
                         <div class="cl-gen-title"><i class="fas fa-wand-magic-sparkles"></i> Generate Cover Letter</div>
-                        <div class="form-group">
-                            <label>Target Company</label>
-                            <div class="input-wrapper">
-                                <i class="fas fa-building"></i>
-                                <input type="text" id="cl-company" placeholder="e.g. Google">
+                        <div class="cl-mode-tabs">
+                            <button class="cl-mode-btn active" data-mode="form" id="cl-mode-form">
+                                <i class="fas fa-edit"></i> Fill Details
+                            </button>
+                            <button class="cl-mode-btn" data-mode="resume" id="cl-mode-resume">
+                                <i class="fas fa-file-alt"></i> Use My Resume
+                            </button>
+                        </div>
+                        <div id="cl-form-fields">
+                            <div class="form-group">
+                                <label>Target Company</label>
+                                <div class="input-wrapper">
+                                    <i class="fas fa-building"></i>
+                                    <input type="text" id="cl-company" placeholder="e.g. Google">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Target Role</label>
+                                <div class="input-wrapper">
+                                    <i class="fas fa-user-tie"></i>
+                                    <input type="text" id="cl-role" placeholder="e.g. Senior Software Engineer">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Job Description <span style="color:var(--text-muted);font-size:0.75rem">(optional)</span></label>
+                                <div class="input-wrapper">
+                                    <i class="fas fa-align-left"></i>
+                                    <textarea id="cl-job-desc" rows="3" placeholder="Paste the job description to tailor your letter..."></textarea>
+                                </div>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>Target Role</label>
-                            <div class="input-wrapper">
-                                <i class="fas fa-user-tie"></i>
-                                <input type="text" id="cl-role" placeholder="e.g. Senior Software Engineer">
-                            </div>
+                        <div id="cl-resume-hint" class="hidden" style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:16px">
+                            <i class="fas fa-info-circle"></i> Your uploaded resume will be used to generate a tailored cover letter.
+                            <span id="cl-resume-status"></span>
                         </div>
                         <div class="form-group">
                             <label>Tone</label>
@@ -740,39 +743,74 @@
             </section>
 
             <!-- ══════════════════════════════════════════════════════════════════
+                 REVIEWS SECTION
+                 ══════════════════════════════════════════════════════════════════ -->
+            <section id="section-reviews" class="section">
+                <div class="section-header">
+                    <div>
+                        <h2 class="section-title"><i class="fas fa-star"></i> Reviews</h2>
+                        <p class="section-subtitle">Share your experience and see what others think</p>
+                    </div>
+                </div>
+                <div class="reviews-container">
+                    <div class="reviews-form glass-card">
+                        <div class="reviews-form-title"><i class="fas fa-pen-nib"></i> Leave a Review</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Your Name</label>
+                                <div class="input-wrapper">
+                                    <i class="fas fa-user"></i>
+                                    <input type="text" id="review-name" placeholder="e.g. Alex Kim">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Your Email</label>
+                                <div class="input-wrapper">
+                                    <i class="fas fa-envelope"></i>
+                                    <input type="email" id="review-email" placeholder="you@example.com">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Your Profession</label>
+                                <div class="input-wrapper">
+                                    <i class="fas fa-briefcase"></i>
+                                    <input type="text" id="review-profession" placeholder="e.g. Software Engineer">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Your Review</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-comment"></i>
+                                <textarea id="review-text" rows="4" placeholder="Share how CareerCopilot AI helped you..."></textarea>
+                            </div>
+                        </div>
+                        <div style="text-align:center;margin-top:8px">
+                            <button class="btn btn-primary btn-lg" id="review-submit-btn">
+                                <i class="fas fa-paper-plane"></i> Submit Review
+                            </button>
+                        </div>
+                    </div>
+                    <div class="reviews-list">
+                        <div class="reviews-list-title"><i class="fas fa-comments"></i> What Everyone Says</div>
+                        <div id="reviews-list" class="reviews-grid"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ══════════════════════════════════════════════════════════════════
                  SETTINGS SECTION
                  ══════════════════════════════════════════════════════════════════ -->
             <section id="section-settings" class="section">
                 <div class="section-header">
                     <div>
                         <h2 class="section-title"><i class="fas fa-cog"></i> Settings</h2>
-                        <p class="section-subtitle">Manage your profile, AI model, and preferences</p>
+                        <p class="section-subtitle">Manage your AI model and preferences</p>
                     </div>
                 </div>
                 <div class="settings-content">
-                    <!-- Profile Card -->
-                    <div class="settings-section-card glass-card">
-                        <h3><i class="fas fa-user"></i> Profile</h3>
-                        <div class="settings-profile-row">
-                            <div class="settings-avatar-lg" id="settings-avatar-wrap">
-                                <span id="settings-initial">J</span>
-                                <div class="settings-avatar-lg-overlay"><i class="fas fa-camera"></i></div>
-                                <input type="file" id="settings-avatar-input" accept="image/*" hidden>
-                            </div>
-                            <div style="flex:1">
-                                <div class="form-group">
-                                    <label>Display Name</label>
-                                    <input type="text" id="settings-name" placeholder="Your name">
-                                </div>
-                                <div class="form-group">
-                                    <label>Email</label>
-                                    <input type="email" id="settings-email" placeholder="you@gmail.com" disabled style="opacity:0.5">
-                                </div>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary" id="settings-save-profile"><i class="fas fa-check"></i> Save Profile</button>
-                    </div>
-
                     <!-- AI Model Card -->
                     <div class="settings-section-card glass-card">
                         <h3><i class="fas fa-robot"></i> AI Model</h3>
@@ -796,7 +834,15 @@
                                     <option value="groq/llama-3.3-70b-versatile">Llama 3.3 70B</option>
                                     <option value="deepseek/deepseek-chat">DeepSeek V3</option>
                                     <option value="qwen/qwen-turbo">Qwen Turbo</option>
+                                    <option value="__custom__">Custom (type exact model name)</option>
                                 </select>
+                            </div>
+                        </div>
+                        <div class="form-group hidden" id="settings-custom-model-group">
+                            <label>Exact Model Name <span style="color:var(--text-muted);font-size:0.75rem">(e.g. gemini/gemini-2.5-pro, deepseek/deepseek-chat)</span></label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-tag"></i>
+                                <input type="text" id="settings-custom-model" placeholder="provider/model-name">
                             </div>
                         </div>
                         <div class="form-group">
@@ -807,28 +853,6 @@
                             </div>
                         </div>
                         <button class="btn btn-primary" id="settings-save-model"><i class="fas fa-save"></i> Save Model Settings</button>
-                    </div>
-
-                    <!-- Appearance Card -->
-                    <div class="settings-section-card glass-card">
-                        <h3><i class="fas fa-palette"></i> Appearance</h3>
-                        <div class="settings-theme-grid">
-                            <button class="settings-theme-btn active" id="theme-dark" data-theme="dark">
-                                <i class="fas fa-moon"></i>
-                                <span>Dark</span>
-                            </button>
-                            <button class="settings-theme-btn" id="theme-light" data-theme="light">
-                                <i class="fas fa-sun"></i>
-                                <span>Light</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Account Card -->
-                    <div class="settings-section-card glass-card settings-logout-card">
-                        <h3><i class="fas fa-shield-alt"></i> Account</h3>
-                        <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:16px">Sign out of your account on this device</p>
-                        <button class="btn btn-danger" id="settings-logout"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
                     </div>
                 </div>
             </section>
@@ -873,6 +897,18 @@
     <!-- Toast Container -->
     <div class="toast-container" id="toast-container"></div>
 
+    <!-- ATS Analysis Modal -->
+    <div class="ats-modal" id="ats-modal">
+        <div class="ats-modal-card">
+            <div class="ats-modal-head">
+                <div><h3><i class="fas fa-clipboard-check" style="color:var(--accent-primary)"></i> ATS Analysis</h3></div>
+                <button class="ats-modal-close" onclick="closeAtsModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="ats-modal-body" id="ats-modal-body"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
     <script src="workflow.js"></script>
     <script src="script.js"></script>
 </body>

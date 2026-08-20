@@ -1,0 +1,17 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - CC_ENVIRONMENT=production
+      - CC_POSTGRES_URL=sqlite+aiosqlite:////app/data/careercopilot.db
+      - CC_POSTGRES_URL_SYNC=sqlite:////app/data/careercopilot.db
+    volumes:
+      - app-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  app-data:

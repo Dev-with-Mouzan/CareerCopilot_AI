@@ -1,151 +1,90 @@
-"""Cover letter generation endpoints."""
+"""Cover letter endpoints — form-based + resume-based generation via cover_letter_graph."""
 
 from __future__ import annotations
 
 import logging
-from uuid import UUID
+import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
-from backend.core.models import CoverLetter as CoverLetterModel
-from backend.core.schemas import CoverLetterRequest, UserProfile
-from backend.db.session import get_db
+from backend.core.schemas import UserProfile
+from backend.core.store import _cover_letters, get_resume, get_generic, list_generic, store_generic
+from backend.graphs.orchestrator import run_cover_letter_pipeline
 from backend.security.auth import get_current_user
 
 logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/cover-letters")
 
 
-# ── Generate cover letter ────────────────────────────────────────────────────
+class _CoverLetterBody(BaseModel):
+    resume_id: str | None = None
+    company_name: str | None = None
+    job_title: str | None = None
+    job_description: str | None = None
+    tone: str = "professional"
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
-async def generate_cover_letter(
-    request: CoverLetterRequest,
-    user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Generate a tailored cover letter for a specific job application."""
-    from backend.graphs.cover_letter_graph import cover_letter_pipeline
+@router.post("", status_code=201)
+async def generate_cover_letter(body: _CoverLetterBody, user: UserProfile = Depends(get_current_user)):
+    """Generate a cover letter from form inputs (optionally using the resume)."""
+    company = (body.company_name or "").strip() or "the company"
+    title = (body.job_title or "").strip() or "the position"
 
-    initial_state = {
-        "user_id": user.id,
-        "resume_id": request.resume_id,
-        "job_id": request.job_id,
-        "resume_text": "",
-        "job_description": request.job_description,
-        "job_title": request.job_title,
-        "company_name": request.company_name,
-        "resume_profile": {},
-        "tone": request.tone,
-        "cover_letter": "",
-        "error": None,
-    }
+    resume_id = uuid.UUID(body.resume_id) if body.resume_id else None
+    resume_profile = {}
+    resume_text = ""
+    if resume_id:
+        resume = get_resume(resume_id)
+        if resume is not None:
+            resume_profile = resume.parsed_profile or {}
+            resume_text = resume.raw_text
 
-    try:
-        result = await cover_letter_pipeline.ainvoke(initial_state)
-    except Exception as exc:
-        logger.error("Cover letter pipeline failed: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Cover letter generation failed: {exc}",
-        )
-
-    cover_letter_text = result.get("cover_letter", "")
-    error = result.get("error")
-
-    if error or not cover_letter_text:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error or "Failed to generate cover letter",
-        )
-
-    # Persist to database
-    cl_record = CoverLetterModel(
+    result = await run_cover_letter_pipeline(
         user_id=user.id,
-        resume_id=request.resume_id,
-        job_id=request.job_id,
-        job_title=request.job_title,
-        company_name=request.company_name,
-        tone=request.tone,
-        content=cover_letter_text,
+        resume_id=resume_id or uuid.UUID("00000000-0000-0000-0000-000000000000"),
+        job_description=body.job_description or "",
+        job_title=title,
+        company_name=company,
+        tone=body.tone or "professional",
+        resume_profile=resume_profile,
     )
-    db.add(cl_record)
-    await db.commit()
-    await db.refresh(cl_record)
+
+    content = result.get("cover_letter", "")
+    error = result.get("error")
+    if error and not content:
+        raise HTTPException(status_code=500, detail=error)
+
+    cl_id = str(uuid.uuid4())
+    store_generic(_cover_letters, uuid.UUID(cl_id), {
+        "user_id": user.id,
+        "company_name": company,
+        "job_title": title,
+        "tone": body.tone or "professional",
+        "content": content,
+        "created_at": str(uuid.uuid4()),
+    })
 
     return {
-        "id": str(cl_record.id),
-        "job_title": request.job_title,
-        "company_name": request.company_name,
-        "tone": request.tone,
-        "content": cover_letter_text,
-        "generated_at": cl_record.created_at.isoformat(),
+        "cover_letter_id": cl_id,
+        "content": content,
+        "company_name": company,
+        "job_title": title,
+        "tone": body.tone or "professional",
     }
 
 
-# ── Get cover letter by ID ───────────────────────────────────────────────────
-
-
-@router.get("/{cover_letter_id}")
-async def get_cover_letter(
-    cover_letter_id: UUID,
-    user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Retrieve a previously generated cover letter."""
-    result = await db.execute(
-        select(CoverLetterModel).where(
-            CoverLetterModel.id == cover_letter_id,
-            CoverLetterModel.user_id == user.id,
-        )
-    )
-    cl = result.scalar_one_or_none()
-    if cl is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Cover letter not found",
-        )
-
-    return {
-        "id": str(cl.id),
-        "job_title": cl.job_title,
-        "company_name": cl.company_name,
-        "tone": cl.tone,
-        "content": cl.content,
-        "generated_at": cl.created_at.isoformat(),
-    }
-
-
-# ── List all cover letters ───────────────────────────────────────────────────
+@router.get("/{cl_id}")
+async def get_cover_letter(cl_id: uuid.UUID, user: UserProfile = Depends(get_current_user)):
+    data = get_generic(_cover_letters, cl_id)
+    if data is None:
+        return {"error": "Cover letter not found"}, 404
+    return data
 
 
 @router.get("")
-async def list_cover_letters(
-    user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """List all cover letters for the current user."""
-    result = await db.execute(
-        select(CoverLetterModel)
-        .where(CoverLetterModel.user_id == user.id)
-        .order_by(CoverLetterModel.created_at.desc())
-    )
-    letters = result.scalars().all()
-
-    return {
-        "cover_letters": [
-            {
-                "id": str(cl.id),
-                "job_title": cl.job_title,
-                "company_name": cl.company_name,
-                "tone": cl.tone,
-                "content": cl.content[:200] + "..." if len(cl.content or "") > 200 else cl.content,
-                "generated_at": cl.created_at.isoformat(),
-            }
-            for cl in letters
-        ],
-        "total": len(letters),
-    }
+async def list_cover_letters(user: UserProfile = Depends(get_current_user)):
+    letters = list_generic(_cover_letters, user.id)
+    return {"cover_letters": letters}

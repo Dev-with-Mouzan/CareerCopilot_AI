@@ -186,30 +186,26 @@ async def execute_tools_node(state: ChatState) -> dict:
 
 
 async def _get_resume_context(user_id) -> str:
-    """Load user's latest resume profile from DB."""
+    """Load user's latest resume profile from in-memory store."""
     if user_id is None:
         return "No user session."
-    from backend.db.session import async_session_factory
-    from backend.core.models import Resume
-    from sqlalchemy import select
+    from backend.core.store import list_resumes
+    from uuid import UUID as _UUID
 
-    async with async_session_factory() as db:
-        result = await db.execute(
-            select(Resume).where(Resume.user_id == user_id).order_by(Resume.created_at.desc()).limit(1)
-        )
-        resume = result.scalar_one_or_none()
-        if resume is None:
-            return "No resume uploaded yet."
-        profile = resume.parsed_profile or {}
-        skills = [s.get("name", "") for s in profile.get("skills", []) if isinstance(s, dict)][:20]
-        exp = profile.get("experience", [])
-        years = profile.get("years_experience", 0)
-        parts = [f"Skills: {', '.join(skills) if skills else 'none detected'}"]
-        if exp:
-            latest = exp[0] if isinstance(exp[0], dict) else {}
-            parts.append(f"Current role: {latest.get('title', 'N/A')} at {latest.get('company', 'N/A')}")
-        parts.append(f"Years of experience: {years}")
-        return " | ".join(parts)
+    resumes = list_resumes(_UUID(str(user_id)) if not isinstance(user_id, _UUID) else user_id)
+    if not resumes:
+        return "No resume uploaded yet."
+    resume = resumes[0]
+    profile = resume.parsed_profile or {}
+    skills = [s.get("name", "") for s in profile.get("skills", []) if isinstance(s, dict)][:20]
+    exp = profile.get("experience", [])
+    years = profile.get("years_experience", 0)
+    parts = [f"Skills: {', '.join(skills) if skills else 'none detected'}"]
+    if exp:
+        latest = exp[0] if isinstance(exp[0], dict) else {}
+        parts.append(f"Current role: {latest.get('title', 'N/A')} at {latest.get('company', 'N/A')}")
+    parts.append(f"Years of experience: {years}")
+    return " | ".join(parts)
 
 
 async def _search_jobs_context(state: ChatState) -> str:
@@ -240,31 +236,28 @@ async def _get_skill_gaps_context(state: ChatState) -> str:
     """Get skill gap analysis context."""
     from backend.services.skill_gap_engine import analyze_skill_gaps
     from backend.services.market_analyzer import analyze_market
-    from backend.db.session import async_session_factory
-    from backend.core.models import Resume
-    from sqlalchemy import select
+    from backend.core.store import list_resumes
+    from uuid import UUID as _UUID
 
     user_id = state.get("user_id")
     if user_id is None:
         return "No user session."
 
-    async with async_session_factory() as db:
-        result = await db.execute(
-            select(Resume).where(Resume.user_id == user_id).order_by(Resume.created_at.desc()).limit(1)
-        )
-        resume = result.scalar_one_or_none()
-        if resume is None or not resume.parsed_profile:
-            return "No resume data available for skill gap analysis."
+    uid = _UUID(str(user_id)) if not isinstance(user_id, _UUID) else user_id
+    resumes = list_resumes(uid)
+    if not resumes or not resumes[0].parsed_profile:
+        return "No resume data available for skill gap analysis."
 
-        resume_skills = [s.get("name", "") for s in resume.parsed_profile.get("skills", []) if isinstance(s, dict)]
-        market = analyze_market(jobs=[], target_role="software engineer")
-        market_skills = market.skill_frequency if hasattr(market, 'skill_frequency') else {}
-        role_skills = list(market_skills.keys())[:20]
-        gaps = analyze_skill_gaps(resume_skills, role_skills, market_skills)
-        if not gaps:
-            return "No significant skill gaps detected."
-        top = [f"{g.skill} (priority {g.priority}, demand: {g.market_demand})" for g in gaps[:5]]
-        return f"Top skill gaps: {'; '.join(top)}"
+    resume = resumes[0]
+    resume_skills = [s.get("name", "") for s in resume.parsed_profile.get("skills", []) if isinstance(s, dict)]
+    market = analyze_market(jobs=[], target_role="software engineer")
+    market_skills = market.skill_frequency if hasattr(market, 'skill_frequency') else {}
+    role_skills = list(market_skills.keys())[:20]
+    gaps = analyze_skill_gaps(resume_skills, role_skills, market_skills)
+    if not gaps:
+        return "No significant skill gaps detected."
+    top = [f"{g.skill} (priority {g.priority}, demand: {g.market_demand})" for g in gaps[:5]]
+    return f"Top skill gaps: {'; '.join(top)}"
 
 
 async def generate_response_node(state: ChatState) -> dict:

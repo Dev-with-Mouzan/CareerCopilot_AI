@@ -9,7 +9,6 @@ All nodes are deterministic (no LLM). Conditional edges handle parsing failures.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Literal
 
 from langgraph.graph import END, START, StateGraph
@@ -17,7 +16,7 @@ from langgraph.graph import END, START, StateGraph
 from backend.core.schemas import ResumeProfile
 from backend.core.state import ResumeState
 from backend.services.embeddings import generate_embedding
-from backend.services.resume_parser import parse_resume
+from backend.services.resume_parser import parse_resume_from_text
 
 logger = logging.getLogger(__name__)
 
@@ -26,27 +25,17 @@ logger = logging.getLogger(__name__)
 
 
 async def parse_resume_node(state: ResumeState) -> dict:
-    """Extract text from the resume file and parse into structured sections."""
-    resume_id = str(state["resume_id"])
-    user_id = str(state["user_id"])
-
-    file_path = Path("storage") / user_id / f"{resume_id}"
-    # Try common extensions
-    for ext in (".pdf", ".docx", ".txt"):
-        candidate = file_path.with_suffix(ext)
-        if candidate.exists():
-            file_path = candidate
-            break
-    else:
+    """Parse resume text from state (already extracted by the upload endpoint)."""
+    raw_text = state.get("resume_text", "")
+    if not raw_text:
         return {
             "parsing_status": "failed",
-            "error": f"No resume file found for user={user_id} resume={resume_id}",
+            "error": "No resume text provided in state",
         }
 
     try:
-        profile = parse_resume(file_path)
+        profile = parse_resume_from_text(raw_text)
         return {
-            "resume_text": file_path.read_text(encoding="utf-8", errors="replace"),
             "resume_profile": profile.model_dump(),
             "parsing_status": "completed",
             "error": None,
@@ -82,18 +71,16 @@ async def build_profile_node(state: ResumeState) -> dict:
     profile_data = state.get("resume_profile", {})
     profile = ResumeProfile(**profile_data)
 
-    # Compute years of experience from experience entries
     if profile.experience:
         from datetime import date
 
         earliest = min(e.start_date for e in profile.experience)
         latest_end = max(
-            (e.end_date or date.today()), default=date.today()
+            (e.end_date or date.today() for e in profile.experience), default=date.today()
         )
         years = round((latest_end - earliest).days / 365.25, 1)
         profile.years_experience = years
 
-    # Infer target roles from experience titles
     title_keywords: dict[str, list[str]] = {
         "engineer": ["software engineer", "backend engineer", "frontend engineer", "full stack engineer"],
         "developer": ["web developer", "mobile developer", "full stack developer"],
@@ -120,7 +107,6 @@ async def generate_embedding_node(state: ResumeState) -> dict:
     profile_data = state.get("resume_profile", {})
     profile = ResumeProfile(**profile_data)
 
-    # Build a text representation for embedding
     parts = [profile.summary] if profile.summary else []
     parts.extend(s.name for s in profile.skills)
     parts.extend(f"{e.title} {e.company} {e.description[:200]}" for e in profile.experience)
@@ -138,23 +124,14 @@ async def generate_embedding_node(state: ResumeState) -> dict:
 
 
 async def store_resume_node(state: ResumeState) -> dict:
-    """Store the final resume profile (placeholder for DB persistence)."""
-    profile_data = state.get("resume_profile", {})
-    logger.info(
-        "Storing resume profile for user=%s resume=%s (skills=%d, experience=%d)",
-        state["user_id"],
-        state["resume_id"],
-        len(profile_data.get("skills", [])),
-        len(profile_data.get("experience", [])),
-    )
+    """No-op — profile is already stored by the upload endpoint."""
     return {}
 
 
 async def error_node(state: ResumeState) -> dict:
-    """Handle parsing errors — log and finalize status."""
+    """Handle parsing errors."""
     logger.error(
-        "Resume pipeline failed for user=%s resume=%s: %s",
-        state["user_id"],
+        "Resume pipeline failed for resume=%s: %s",
         state["resume_id"],
         state.get("error", "unknown"),
     )
@@ -165,14 +142,12 @@ async def error_node(state: ResumeState) -> dict:
 
 
 def route_after_parse(state: ResumeState) -> Literal["extract_text", "error_node"]:
-    """Branch on whether parsing succeeded."""
     if state.get("parsing_status") == "failed":
         return "error_node"
     return "extract_text"
 
 
 def route_after_sections(state: ResumeState) -> Literal["build_profile", "error_node"]:
-    """Branch on whether sections were detected."""
     if state.get("parsing_status") == "failed":
         return "error_node"
     return "build_profile"
@@ -182,10 +157,8 @@ def route_after_sections(state: ResumeState) -> Literal["build_profile", "error_
 
 
 def build_resume_graph() -> StateGraph:
-    """Construct the resume processing workflow."""
     graph = StateGraph(ResumeState)
 
-    # Add nodes
     graph.add_node("parse_resume", parse_resume_node)
     graph.add_node("extract_text", extract_text_node)
     graph.add_node("detect_sections", detect_sections_node)
@@ -194,7 +167,6 @@ def build_resume_graph() -> StateGraph:
     graph.add_node("store_resume", store_resume_node)
     graph.add_node("error_node", error_node)
 
-    # Edges
     graph.add_edge(START, "parse_resume")
     graph.add_conditional_edges(
         "parse_resume",
@@ -215,5 +187,4 @@ def build_resume_graph() -> StateGraph:
     return graph
 
 
-# Compiled graph instance
 resume_pipeline = build_resume_graph().compile()

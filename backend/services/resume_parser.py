@@ -496,6 +496,52 @@ def _parse_certifications(text: str) -> list[Certification]:
 _parse_cache: dict[str, ResumeProfile] = {}
 
 
+def _build_profile(text: str) -> ResumeProfile:
+    """Build a ResumeProfile from already-extracted raw text."""
+    text = _clean_text(text)
+    sections = _split_sections(text)
+
+    contact = _extract_contact(text)
+    skills = _extract_skills(text)
+    summary = ""
+    if "summary" in sections:
+        summary = re.sub(r"^\s*(?:professional\s+)?summary\s*:?\s*", "", sections["summary"], flags=re.IGNORECASE).strip()
+
+    experiences = _parse_experiences(sections.get("experience", ""))
+    education = _parse_education(sections.get("education", ""))
+    projects = _parse_projects(sections.get("projects", ""))
+    certifications = _parse_certifications(sections.get("certifications", ""))
+
+    years = 0.0
+    if experiences:
+        earliest = min(e.start_date for e in experiences)
+        latest_end = max((e.end_date or date.today() for e in experiences), default=date.today())
+        years = round((latest_end - earliest).days / 365.25, 1)
+
+    return ResumeProfile(
+        skills=skills,
+        experience=experiences,
+        education=education,
+        projects=projects,
+        certifications=certifications,
+        years_experience=years,
+        summary=summary,
+        contact_info=contact,
+    )
+
+
+def parse_resume_from_text(raw_text: str, *, content_hash: str = "", skip_cache: bool = False) -> ResumeProfile:
+    """Parse a resume from raw text (e.g. already stored in DB)."""
+    if not skip_cache and content_hash and content_hash in _parse_cache:
+        return _parse_cache[content_hash]
+
+    profile = _build_profile(raw_text)
+
+    if content_hash:
+        _parse_cache[content_hash] = profile
+    return profile
+
+
 def parse_resume(file_path: str | Path, *, skip_cache: bool = False) -> ResumeProfile:
     """
     Parse a resume file (PDF or DOCX) into a structured ResumeProfile.
@@ -521,36 +567,6 @@ def parse_resume(file_path: str | Path, *, skip_cache: bool = False) -> ResumePr
     else:
         raise ValueError(f"Unsupported file type: {ext}")
 
-    text = _clean_text(raw_text)
-    sections = _split_sections(text)
-
-    contact = _extract_contact(text)
-    skills = _extract_skills(text)
-    summary = ""
-    if "summary" in sections:
-        summary = re.sub(r"^\s*(?:professional\s+)?summary\s*:?\s*", "", sections["summary"], flags=re.IGNORECASE).strip()
-
-    experiences = _parse_experiences(sections.get("experience", ""))
-    education = _parse_education(sections.get("education", ""))
-    projects = _parse_projects(sections.get("projects", ""))
-    certifications = _parse_certifications(sections.get("certifications", ""))
-
-    years = 0.0
-    if experiences:
-        earliest = min(e.start_date for e in experiences)
-        latest_end = max((e.end_date or date.today()), default=date.today())
-        years = round((latest_end - earliest).days / 365.25, 1)
-
-    profile = ResumeProfile(
-        skills=skills,
-        experience=experiences,
-        education=education,
-        projects=projects,
-        certifications=certifications,
-        years_experience=years,
-        summary=summary,
-        contact_info=contact,
-    )
-
+    profile = _build_profile(raw_text)
     _parse_cache[file_hash] = profile
     return profile
