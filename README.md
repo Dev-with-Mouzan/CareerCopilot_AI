@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://img.shields.io/badge/Status-Active-brightgreen?style=for-the-badge&logo=vercel" alt="Active"/>
+<img src="https://img.shields.io/badge/Status-Active-brightgreen?style=for-the-badge&logo=amazonwebservices" alt="Active"/>
 <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
 <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI"/>
 <img src="https://img.shields.io/badge/LangGraph-Workflows-FF6B6B?style=for-the-badge" alt="LangGraph"/>
@@ -23,7 +23,7 @@
 
 <br/>
 
-[![🌐 Live Demo](https://img.shields.io/badge/🌐%20Live%20Demo-career--copilot--ai--five.vercel.app-6366F1?style=for-the-badge)](https://career-copilot-ai-five.vercel.app/)
+[![🌐 Live Demo](https://img.shields.io/badge/🌐%20Live%20Demo-13.236.67.129-6366F1?style=for-the-badge)](http://13.236.67.129/)
 
 </div>
 
@@ -74,8 +74,8 @@
 - **Typography**: Inter (Google Fonts)
 
 ### DevOps & Infrastructure
-- **Backend Hosting**: [AWS](https://aws.amazon.com/) — persistent server for AI workloads
-- **Frontend Hosting**: [Vercel](https://vercel.com/) — global CDN, instant static delivery
+- **Hosting**: [AWS EC2](https://aws.amazon.com/ec2/) — Docker container on Ubuntu 24.04
+- **Containerization**: [Docker](https://www.docker.com/) — multi-stage build, non-root user
 - **Dependency Management**: [UV](https://docs.astral.sh/uv/)
 
 ---
@@ -294,10 +294,24 @@ All endpoints are prefixed with `/api`. Authentication via `Authorization: Beare
 
 | Layer | Platform | Purpose |
 |---|---|---|
-| **Frontend** | [Vercel](https://career-copilot-ai-five.vercel.app) | Global CDN, instant static delivery |
-| **Backend** | AWS | Persistent server for AI workloads |
+| **Full Stack** | [AWS EC2](https://aws.amazon.com/ec2/) | Docker container running FastAPI + static frontend |
 
-**🔗 Live Application: [https://career-copilot-ai-five.vercel.app/](https://career-copilot-ai-five.vercel.app/)**
+**🔗 Live Application: [http://13.236.67.129/](http://13.236.67.129/)**
+
+### Docker Deployment
+```bash
+# On EC2 (Ubuntu 24.04)
+sudo apt update && sudo apt install -y git docker.io
+sudo systemctl start docker && sudo systemctl enable docker
+sudo usermod -aG docker ubuntu
+
+git clone https://github.com/Dev-with-Mouzan/CareerCopilot_AI.git
+cd CareerCopilot_AI
+sudo docker build -t career-copilot .
+sudo docker run -d -p 8000:8000 --name career-copilot -v $(pwd)/data:/app/data career-copilot
+```
+
+> **Note:** Users must configure their own API key and model in Settings before using the app.
 
 ---
 
@@ -339,6 +353,6 @@ Built with ❤️ by **Mouzan Raza**
 
 *If CareerCopilot helped you land a role, consider giving this repo a ⭐ — it means the world!*
 
-[![Live Demo](https://img.shields.io/badge/Try%20It%20Now-career--copilot--ai--five.vercel.app-6366F1?style=for-the-badge)](https://career-copilot-ai-five.vercel.app/)
+[![Live Demo](https://img.shields.io/badge/Try%20It%20Now-13.236.67.129-6366F1?style=for-the-badge)](http://13.236.67.129/)
 
 </div>
