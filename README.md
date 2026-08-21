@@ -25,7 +25,7 @@
 
 <br/>
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-13.236.67.129-6366F1?style=for-the-badge)](http://54.206.89.234:8000/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-54.206.89.234-6366F1?style=for-the-badge)](http://54.206.89.234:8000/)
 
 </div>
 
@@ -133,7 +133,7 @@ CareerCopilot_AI/
 │   │   ├── router.py            # Central router (aggregates sub-routers)
 │   │   ├── resume.py            # Resume upload & parsing endpoints
 │   │   ├── jobs.py              # Job search, match, and ATS analysis endpoints
-│   │   ├── ats.py               # ATS scoring endpoints (stub)
+│   │   ├── ats.py               # ATS endpoints (placeholder; analysis runs via jobs.py)
 │   │   ├── career.py            # Career planning endpoints
 │   │   ├── interview.py         # Interview prep endpoints
 │   │   ├── cover_letter.py      # Cover letter generation endpoints
@@ -251,20 +251,26 @@ Open `http://localhost:8000` in your browser.
 
 ## API Overview
 
-All endpoints are prefixed with `/api`. Model and API key are sent via `X-Model` and `X-Model` headers.
+All endpoints are prefixed with `/api`. The optional per-user API key and model are sent via `X-API-Key` and `X-Model` headers.
 
 | Endpoint | Method | Description |
 |---|---|---|
 | `/api/resumes` | `POST` | Upload and parse a resume (PDF/DOCX) |
+| `/api/resumes/{id}` | `GET` / `DELETE` | Fetch or delete a parsed resume |
 | `/api/jobs/search` | `POST` | Search jobs by keywords or resume |
 | `/api/jobs/{id}/analyze` | `POST` | Run ATS analysis against a job |
 | `/api/career/plan` | `POST` | Generate a career plan |
+| `/api/career/market` | `GET` | Market intelligence for target roles |
+| `/api/career/skill-gaps` | `GET` | Skill gap analysis vs. market demand |
 | `/api/interviews` | `POST` | Start an interview session |
 | `/api/interviews/{id}/answer` | `POST` | Submit an answer for evaluation |
 | `/api/cover-letters` | `POST` | Generate a tailored cover letter |
 | `/api/chat` | `POST` | Send a message to the AI assistant |
-| `/api/reviews` | `GET/POST` | List or submit user reviews |
+| `/api/applications` | `POST` / `GET` | Track and list job applications |
+| `/api/reviews` | `GET` / `POST` | List or submit user reviews |
 | `/api/docs` | `GET` | Interactive Swagger API documentation |
+
+> **Note:** The dedicated `/api/ats/*` routes are currently placeholders. ATS analysis is fully available via [`/api/jobs/{job_id}/analyze`](#api-overview), which invokes the same `ats_graph` pipeline.
 
 ---
 
@@ -274,7 +280,7 @@ All endpoints are prefixed with `/api`. Model and API key are sent via `X-Model`
 |---|---|---|
 | **Full Stack** | [AWS EC2](https://aws.amazon.com/ec2/) | Docker container running FastAPI + static frontend |
 
-**Live Application: [http://13.236.67.129/](http://13.236.67.129/)**
+**Live Application: [http://54.206.89.234:8000/](http://54.206.89.234:8000/)**
 
 ### Deploy on AWS EC2
 
@@ -335,10 +341,10 @@ Contributions are welcome! Please open an issue first to discuss what you'd like
 
 <div align="center">
 
-Built with by **Mouzan Raza**
+Built by **Mouzan Raza**
 
 *If CareerCopilot helped you land a role, consider giving this repo a star — it means the world!*
 
-[![Live Demo](https://img.shields.io/badge/Try%20It%20Now-13.236.67.129-6366F1?style=for-the-badge)](http://13.236.67.129/)
+[![Live Demo](https://img.shields.io/badge/Try%20It%20Now-54.206.89.234-6366F1?style=for-the-badge)](http://54.206.89.234:8000/)
 
 </div>
