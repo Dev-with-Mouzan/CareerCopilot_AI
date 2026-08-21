@@ -25,7 +25,7 @@
 
 <br/>
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-13.236.67.129-6366F1?style=for-the-badge)](http://13.236.67.129/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-13.236.67.129-6366F1?style=for-the-badge)](http://54.206.89.234:8000/)
 
 </div>
 
