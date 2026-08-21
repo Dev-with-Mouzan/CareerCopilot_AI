@@ -25,7 +25,7 @@
 
 <br/>
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-13.236.67.129-6366F1?style=for-the-badge)](http://54.206.89.234:8000/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-54.206.89.234-6366F1?style=for-the-badge)](http://54.206.89.234:8000/)
 
 </div>
 
@@ -312,12 +312,7 @@ docker run -d -p 8000:8000 --name career-copilot \
 - [x] Conversational AI chat assistant
 - [x] User-configurable model and API key (bring your own key)
 - [x] Docker deployment on AWS EC2
-- [ ] PostgreSQL + pgvector for persistent storage and semantic search
-- [ ] Alembic database migrations
-- [ ] WebSocket real-time job alerts
-- [ ] Resume version diff and A/B testing
-- [ ] Salary negotiation coaching module
-- [ ] Multi-language resume support
+- [x] Multi-language resume support
 
 ---
 
@@ -339,6 +334,6 @@ Built with by **Mouzan Raza**
 
 *If CareerCopilot helped you land a role, consider giving this repo a star — it means the world!*
 
-[![Live Demo](https://img.shields.io/badge/Try%20It%20Now-13.236.67.129-6366F1?style=for-the-badge)](http://13.236.67.129/)
+[![Live Demo](https://img.shields.io/badge/Try%20It%20Now-54.206.89.234-6366F1?style=for-the-badge)](http://54.206.89.234:8000/)
 
 </div>
