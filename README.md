@@ -1,9 +1,11 @@
 <div align="center">
 
 <img src="https://img.shields.io/badge/Status-Active-brightgreen?style=for-the-badge&logo=amazonwebservices" alt="Active"/>
-<img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
+<img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
 <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI"/>
 <img src="https://img.shields.io/badge/LangGraph-Workflows-FF6B6B?style=for-the-badge" alt="LangGraph"/>
+<img src="https://img.shields.io/badge/LangChain-Integration-3776AB?style=for-the-badge" alt="LangChain"/>
+<img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker"/>
 
 <br/>
 <br/>
@@ -17,81 +19,85 @@
   ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝╚═╝  ╚═╝    ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚══════╝ ╚═════╝    ╚═╝   
 ```
 
-### 🚀 Your Agentic Job Matcher & Career Strategist
+### Your Agentic Job Matcher & Career Strategist
 
 *Stop applying blindly. Start landing interviews.*
 
 <br/>
 
-[![🌐 Live Demo](https://img.shields.io/badge/🌐%20Live%20Demo-13.236.67.129-6366F1?style=for-the-badge)](http://13.236.67.129/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-13.236.67.129-6366F1?style=for-the-badge)](http://13.236.67.129/)
 
 </div>
 
 ---
 
-## 📖 Overview
+## Overview
 
-**CareerCopilot AI** is a multi-workflow AI system that automates every stage of the modern job search. Built on **LangGraph**, it deploys six specialized workflows — **Resume Parser**, **Job Matcher**, **ATS Analyzer**, **Career Strategist**, **Interview Coach**, and **Chat Assistant** — that work together through shared state to find your dream roles, optimize your resume, and build a personalized career roadmap.
+**CareerCopilot AI** is a multi-workflow AI system that automates every stage of the modern job search. Built on **LangGraph** and **LangChain**, it deploys six specialized workflows — **Resume Parser**, **Job Matcher**, **ATS Analyzer**, **Career Strategist**, **Interview Coach**, and **Chat Assistant** — that work together through shared state to find your dream roles, optimize your resume, and build a personalized career roadmap.
+
+Users bring their own API key (Gemini, OpenAI, Groq, DeepSeek, or Qwen) via the Settings panel — no server-side keys required.
 
 > **No more spray-and-pray applications. Just targeted, data-driven career moves.**
 
 ---
 
-## ✨ Features
+## Features
 
 | Feature | Description |
 |---|---|
-| 📝 **Resume Parsing** | Deterministic PDF/DOCX extraction into structured profiles with skill detection across 300+ technologies |
-| 🔍 **Multi-Source Job Discovery** | Aggregates listings from LinkedIn, Remotive, Jobicy, and custom scrapers with deduplication |
-| 🎯 **Skill-Based Job Matching** | Multi-factor scoring: skill overlap, experience level, seniority, location, salary, and semantic similarity |
-| 📊 **ATS Compatibility Scoring** | Keyword coverage, skill gaps, experience alignment, and LLM-powered improvement recommendations |
-| 💡 **Strategic Career Planning** | Skill gap analysis, market intelligence, learning roadmaps, and 30-60-90 day action plans |
-| 🤖 **Interview Preparation** | Targeted question generation with answer evaluation across technical, behavioral, and system design categories |
-| 💬 **AI Chat Assistant** | Context-aware coaching with conversation history and tool usage tracking |
-| ⚙️ **Model Settings** | Choose your AI provider and model from the UI — Gemini, OpenAI, DeepSeek, Qwen — with per-user API key support |
-| 🔐 **JWT + API Key Auth** | Secure authentication with bcrypt password hashing and token-based access |
-| 📈 **Observability** | Request tracing, LLM token tracking, cost estimation, and structured logging |
-| 💎 **Premium UI** | Glassmorphism design with dynamic particles, micro-animations, and dark-mode aesthetic |
+| **Resume Parsing** | PDF/DOCX extraction into structured profiles with skill detection |
+| **Multi-Source Job Discovery** | Aggregates listings from LinkedIn, Remotive, and Jobicy with deduplication |
+| **Skill-Based Job Matching** | Multi-factor scoring: skill overlap, experience, seniority, location, salary, and semantic similarity |
+| **ATS Compatibility Scoring** | Keyword coverage, skill gaps, experience alignment, and LLM-powered recommendations |
+| **Strategic Career Planning** | Skill gap analysis, market intelligence, learning roadmaps, and action plans |
+| **Interview Preparation** | Question generation with answer evaluation across technical, behavioral, and system design categories |
+| **Cover Letter Generation** | Tailored cover letters with tone selection (professional, enthusiastic, confident, creative) |
+| **AI Chat Assistant** | Context-aware coaching with conversation history and tool usage tracking |
+| **Model Settings** | Choose your AI provider and model from the UI — Gemini, OpenAI, DeepSeek, Qwen, Groq — with per-user API key |
+| **Premium UI** | Glassmorphism design with dynamic particles, micro-animations, and dark-mode aesthetic |
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Backend — AI & Logic
-- **Framework**: [FastAPI](https://fastapi.tiangolo.com/) (Python 3.10+)
+- **Framework**: [FastAPI](https://fastapi.tiangolo.com/) (Python 3.11+)
 - **AI Orchestration**: [LangGraph](https://langchain-ai.github.io/langgraph/) — stateful graph workflows
-- **LLM Routing**: [LiteLLM](https://docs.litellm.ai/) — unified interface for Gemini, Groq, OpenAI, DeepSeek, Qwen, Anthropic
-- **Database**: [PostgreSQL](https://www.postgresql.org/) + [pgvector](https://github.com/pgvector/pgvector) (async via SQLAlchemy 2.0)
-- **Cache**: [Redis](https://redis.io/) — multi-layer caching (in-memory + Redis)
-- **Auth**: JWT (PyJWT) + API key headers
-- **Resume Parsing**: PyMuPDF (primary), PyPDF2 (fallback), python-docx
+- **LLM Integration**: [LangChain](https://www.langchain.com/) — `ChatGoogleGenerativeAI`, `ChatOpenAI`, `ChatGroq` for per-provider model routing
+- **LLM Fallback**: [LiteLLM](https://docs.litellm.ai/) — provider-aware model fallback
+- **Database**: SQLite (in-memory store for demo; PostgreSQL-ready via SQLAlchemy 2.0)
+- **Auth**: Guest user auth with `X-API-Key` / `X-Model` per-request headers
+- **Resume Parsing**: PyMuPDF, python-docx
 - **Scraping**: HTTPX, BeautifulSoup4
+- **ML**: scikit-learn (skill matching, embeddings)
 
 ### Frontend — UI/UX
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/) + custom glassmorphism design system
+- **Styling**: Custom CSS with glassmorphism design system
 - **Logic**: Vanilla JavaScript (Async/Await API integration)
+- **Markdown**: marked.js for career plan rendering
 - **Aesthetics**: Glassmorphism, micro-animations, backdrop filters, particle effects
-- **Typography**: Inter (Google Fonts)
 
 ### DevOps & Infrastructure
 - **Hosting**: [AWS EC2](https://aws.amazon.com/ec2/) — Docker container on Ubuntu 24.04
 - **Containerization**: [Docker](https://www.docker.com/) — multi-stage build, non-root user
-- **Dependency Management**: [UV](https://docs.astral.sh/uv/)
+- **Dependency Management**: pip + uv
 
 ---
 
-## 🏗️ Project Architecture
+## Project Architecture
 
 ```
 CareerCopilot_AI/
 │
 ├── backend/                     # FastAPI + LangGraph Backend
-│   ├── main.py                  # App entrypoint, middleware, lifespan
+│   ├── main.py                  # App entrypoint, CORS, static files, middleware
 │   ├── core/
 │   │   ├── config.py            # Pydantic settings (env-driven)
-│   │   ├── models.py            # SQLAlchemy ORM models (14 tables)
+│   │   ├── models.py            # SQLAlchemy ORM models
 │   │   ├── schemas.py           # Pydantic request/response schemas
-│   │   └── state.py             # LangGraph TypedDict state definitions
+│   │   ├── state.py             # LangGraph TypedDict state definitions
+│   │   ├── store.py             # In-memory data store
+│   │   └── types.py             # Shared type definitions
 │   │
 │   ├── graphs/                  # LangGraph workflow definitions
 │   │   ├── orchestrator.py      # Pipeline registry & full-pipeline coordinator
@@ -100,19 +106,21 @@ CareerCopilot_AI/
 │   │   ├── ats_graph.py         # ATS scoring workflow
 │   │   ├── career_graph.py      # Career planning workflow
 │   │   ├── interview_graph.py   # Interview prep workflow
+│   │   ├── cover_letter_graph.py# Cover letter generation workflow
 │   │   └── chat_graph.py        # Conversational AI workflow
 │   │
 │   ├── services/                # Deterministic & LLM-powered services
-│   │   ├── resume_parser.py     # PDF/DOCX → structured profile
+│   │   ├── resume_parser.py     # PDF/DOCX -> structured profile
 │   │   ├── job_normalizer.py    # Raw job data normalization
 │   │   ├── job_deduplicator.py  # Cross-source deduplication
 │   │   ├── skill_matcher.py     # Multi-factor skill matching
+│   │   ├── skill_aliases.py     # Skill name normalization
 │   │   ├── skill_gap_engine.py  # Gap analysis & learning paths
 │   │   ├── ats_engine.py        # Deterministic ATS scoring
 │   │   ├── market_analyzer.py   # Market intelligence aggregation
-│   │   ├── embeddings.py        # Vector embedding service (pgvector)
-│   │   ├── cache.py             # Multi-layer cache (memory + Redis)
-│   │   ├── llm_service.py       # Model router, fallback, cost tracking
+│   │   ├── embeddings.py        # Vector embedding service
+│   │   ├── cache.py             # In-memory caching
+│   │   ├── llm_service.py       # LangChain model factory, fallback, cost tracking
 │   │   └── job_sources/         # Job board integrations
 │   │       ├── base.py          # Abstract source interface
 │   │       ├── linkedin.py      # LinkedIn Guest API
@@ -124,16 +132,19 @@ CareerCopilot_AI/
 │   ├── api/                     # FastAPI route handlers
 │   │   ├── router.py            # Central router (aggregates sub-routers)
 │   │   ├── resume.py            # Resume upload & parsing endpoints
-│   │   ├── jobs.py              # Job search & match endpoints
-│   │   ├── ats.py               # ATS scoring endpoints
+│   │   ├── jobs.py              # Job search, match, and ATS analysis endpoints
+│   │   ├── ats.py               # ATS scoring endpoints (stub)
 │   │   ├── career.py            # Career planning endpoints
 │   │   ├── interview.py         # Interview prep endpoints
+│   │   ├── cover_letter.py      # Cover letter generation endpoints
 │   │   ├── chat.py              # Chat assistant endpoints
+│   │   ├── reviews.py           # User review endpoints
 │   │   ├── applications.py      # Application tracking endpoints
+│   │   ├── auth.py              # Auth endpoints
 │   │   └── admin.py             # Admin & health check endpoints
 │   │
 │   ├── security/                # Auth & rate limiting
-│   │   ├── auth.py              # JWT + API key authentication
+│   │   ├── auth.py              # Guest user auth
 │   │   ├── rate_limit.py        # Per-IP rate limiting
 │   │   └── sanitization.py      # Input sanitization
 │   │
@@ -145,19 +156,24 @@ CareerCopilot_AI/
 │       ├── session.py           # Async session management
 │       └── migrations.py        # Alembic migration helpers
 │
-├── frontend/                    # Web Interface
+├── frontend/                    # Static Web Interface
 │   ├── index.html               # Glassmorphic UI shell
 │   ├── script.js                # API integration & state management
-│   └── style.css                # Custom animations, variables & theme
+│   ├── style.css                # Custom animations, variables & theme
+│   ├── workflow.js              # Workflow visualization
+│   └── logo.png                 # App logo
 │
 ├── tests/                       # Test suite
-│   ├── unit/
-│   ├── integration/
-│   ├── graph/
-│   ├── security/
-│   └── evaluation/
+│   ├── unit/                    # Unit tests (ats_engine, job_deduplicator, etc.)
+│   ├── integration/             # API integration tests
+│   ├── graph/                   # LangGraph workflow tests
+│   ├── security/                # Security/sanitization tests
+│   └── evaluation/              # (placeholder)
 │
-├── api/                         # Legacy CrewAI backend (deprecated)
+├── Dockerfile                   # Multi-stage Docker build
+├── docker-compose.yml           # Docker Compose config
+├── .dockerignore                # Docker build exclusions
+├── conftest.py                  # Pytest fixtures
 ├── .env.example                 # Environment variable template
 ├── pyproject.toml               # Project metadata & tool config
 ├── requirements.txt             # Python dependencies
@@ -166,156 +182,125 @@ CareerCopilot_AI/
 
 ---
 
-## 🤖 Meet the AI Workflows
+## How It Works
 
 <table>
 <tr>
 <td width="33%" align="center">
-<h3>📝 Resume Parser</h3>
-<p>Deterministic extraction from PDF/DOCX into structured profiles. Detects 300+ skills, parses experience, education, projects, and certifications with content-hash caching.</p>
+<h3>Resume Parser</h3>
+<p>Extracts structured profiles from PDF/DOCX. Detects skills, experience, education, and certifications.</p>
 </td>
 <td width="33%" align="center">
-<h3>🔍 Job Matcher</h3>
-<p>Aggregates from LinkedIn, Remotive, and Jobicy. Normalizes schemas, deduplicates across sources, and scores matches using skill overlap, experience alignment, seniority, location, and salary.</p>
+<h3>Job Matcher</h3>
+<p>Aggregates from LinkedIn, Remotive, and Jobicy. Normalizes, deduplicates, and scores matches using skill overlap and semantic similarity.</p>
 </td>
 <td width="33%" align="center">
-<h3>📊 ATS Analyzer</h3>
-<p>Deterministic keyword/skill/education scoring plus LLM-powered explanation. Generates actionable recommendations and improved resume sections.</p>
+<h3>ATS Analyzer</h3>
+<p>Deterministic keyword/skill/education scoring plus LLM-powered explanations and recommendations.</p>
 </td>
 </tr>
 <tr>
 <td width="33%" align="center">
-<h3>💡 Career Strategist</h3>
-<p>Identifies skill gaps against market demand, analyzes salary distributions, and builds personalized 30-60-90 day action plans with learning roadmaps.</p>
+<h3>Career Strategist</h3>
+<p>Identifies skill gaps against market demand, generates learning plans, project suggestions, and application strategies.</p>
 </td>
 <td width="33%" align="center">
-<h3>🤖 Interview Coach</h3>
-<p>Generates targeted questions (technical, behavioral, system design) based on your resume and target role. Evaluates answers with detailed feedback.</p>
+<h3>Interview Coach</h3>
+<p>Generates targeted questions (technical, behavioral, system design) and evaluates answers with detailed feedback.</p>
 </td>
 <td width="33%" align="center">
-<h3>💬 Chat Assistant</h3>
-<p>Context-aware career coaching with conversation history. Leverages resume profile and job data for personalized guidance.</p>
+<h3>Chat Assistant</h3>
+<p>Context-aware career coaching with tool usage. Answers questions about resume, jobs, ATS scores, and career plans.</p>
 </td>
 </tr>
 </table>
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
-- Python **3.10+**
-- **PostgreSQL** (with pgvector extension for semantic search)
-- **Redis** (for caching layer)
-- [UV](https://docs.astral.sh/uv/) *(recommended)*
+- Python **3.11+**
+- **Docker** (recommended) or pip
 
-### 1 — Clone the Repository
+### Option 1 — Docker (Recommended)
+
 ```bash
 git clone https://github.com/Dev-with-Mouzan/CareerCopilot_AI.git
 cd CareerCopilot_AI
+docker build -t career-copilot .
+docker run -d -p 8000:8000 --name career-copilot -v $(pwd)/data:/app/data career-copilot
 ```
 
-### 2 — Configure Environment Variables
-Copy the example and fill in your keys:
+Open `http://localhost:8000` — configure your API key and model in Settings.
+
+### Option 2 — Local Development
+
 ```bash
-cp .env.example .env
-```
-
-### 3 — Install Dependencies
-```bash
-uv sync
-uv pip install -r requirements.txt
-```
-
-### 4 — Set Up the Database
-```bash
-# Create the database
-createdb careercopilot
-
-# Tables are created automatically on first startup
-# For production, use Alembic migrations
-```
-
-### 5 — Run the Application
-
-**Start the backend server:**
-```bash
+git clone https://github.com/Dev-with-Mouzan/CareerCopilot_AI.git
+cd CareerCopilot_AI
+pip install -r requirements.txt
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-**Launch the frontend:**
-Open `frontend/index.html` in your browser, or start a local live server.
+Open `http://localhost:8000` in your browser.
 
-**API docs available at:** `http://localhost:8000/docs`
-
----
-
-## 🔧 Environment Variables
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `CC_POSTGRES_URL` | Yes | `postgresql+asyncpg://postgres:postgres@localhost:5432/careercopilot` | Async PostgreSQL connection string |
-| `CC_REDIS_URL` | No | `redis://localhost:6379/0` | Redis URL for caching (empty = no cache) |
-| `CC_JWT_SECRET` | Yes | `change-me-in-production` | Secret key for JWT signing |
-| `CC_GEMINI_API_KEY` | Yes* | | Google Gemini API key |
-| `CC_GROQ_API_KEY` | No | | Groq API key (fallback provider) |
-| `CC_OPENAI_API_KEY` | No | | OpenAI API key (fallback provider) |
-| `CC_DEEPSEEK_API_KEY` | No | | DeepSeek API key (V3 / R1 models) |
-| `CC_QWEN_API_KEY` | No | | Alibaba Qwen API key (DashScope) |
-| `CC_LLM_PROVIDER` | No | `gemini` | Primary LLM provider |
-| `CC_FAST_MODEL` | No | `gemini/gemini-2.5-flash-lite` | Fast model for extraction tasks |
-| `CC_STRONG_MODEL` | No | `gemini/gemini-2.5-flash` | Strong model for analysis tasks |
-| `CC_EMBEDDING_MODEL` | No | `text-embedding-004` | Embedding model for semantic search |
-| `CC_DEBUG` | No | `false` | Enable debug logging |
-| `CC_ENVIRONMENT` | No | `development` | `development` / `staging` / `production` |
-
-> **Note:** All env vars use the `CC_` prefix (configurable in `backend/core/config.py`).
+**API docs:** `http://localhost:8000/docs`
 
 ---
 
-## 🌐 API Overview
+## API Overview
 
-All endpoints are prefixed with `/api`. Authentication via `Authorization: Bearer <token>` or `X-API-Key` header.
+All endpoints are prefixed with `/api`. Model and API key are sent via `X-Model` and `X-Model` headers.
 
-| Tag | Endpoints | Description |
+| Endpoint | Method | Description |
 |---|---|---|
-| **Resumes** | `POST /api/resumes/upload`, `GET /api/resumes/{id}` | Upload and parse resumes |
-| **Jobs** | `POST /api/jobs/search`, `GET /api/jobs/{id}` | Search, match, and retrieve jobs |
-| **ATS** | `POST /api/ats/analyze`, `GET /api/ats/{id}` | ATS compatibility scoring |
-| **Career** | `POST /api/career/plan`, `GET /api/career/{id}` | Career planning and skill gaps |
-| **Interviews** | `POST /api/interviews/start`, `POST /api/interviews/answer` | Interview prep sessions |
-| **Chat** | `POST /api/chat`, `GET /api/chat/{conversation_id}` | Conversational AI assistant |
-| **Applications** | `POST /api/applications`, `GET /api/applications` | Application tracking |
-| **Admin** | `GET /api/health`, `GET /api/metrics` | Health checks and metrics |
+| `/api/resumes` | `POST` | Upload and parse a resume (PDF/DOCX) |
+| `/api/jobs/search` | `POST` | Search jobs by keywords or resume |
+| `/api/jobs/{id}/analyze` | `POST` | Run ATS analysis against a job |
+| `/api/career/plan` | `POST` | Generate a career plan |
+| `/api/interviews` | `POST` | Start an interview session |
+| `/api/interviews/{id}/answer` | `POST` | Submit an answer for evaluation |
+| `/api/cover-letters` | `POST` | Generate a tailored cover letter |
+| `/api/chat` | `POST` | Send a message to the AI assistant |
+| `/api/reviews` | `GET/POST` | List or submit user reviews |
+| `/api/docs` | `GET` | Interactive Swagger API documentation |
 
 ---
 
-## 🌐 Deployment
+## Deployment
 
 | Layer | Platform | Purpose |
 |---|---|---|
 | **Full Stack** | [AWS EC2](https://aws.amazon.com/ec2/) | Docker container running FastAPI + static frontend |
 
-**🔗 Live Application: [http://13.236.67.129/](http://13.236.67.129/)**
+**Live Application: [http://13.236.67.129/](http://13.236.67.129/)**
 
-### Docker Deployment
+### Deploy on AWS EC2
+
 ```bash
-# On EC2 (Ubuntu 24.04)
+# 1. Install Docker on Ubuntu 24.04
 sudo apt update && sudo apt install -y git docker.io
 sudo systemctl start docker && sudo systemctl enable docker
 sudo usermod -aG docker ubuntu
+newgrp docker
 
+# 2. Clone and build
 git clone https://github.com/Dev-with-Mouzan/CareerCopilot_AI.git
 cd CareerCopilot_AI
-sudo docker build -t career-copilot .
-sudo docker run -d -p 8000:8000 --name career-copilot -v $(pwd)/data:/app/data career-copilot
+docker build -t career-copilot .
+
+# 3. Run
+docker run -d -p 8000:8000 --name career-copilot \
+  -v $(pwd)/data:/app/data \
+  career-copilot
 ```
 
-> **Note:** Users must configure their own API key and model in Settings before using the app.
+> **Note:** Open port 8000 in your EC2 Security Group. Users must configure their own API key and model in Settings before using the app.
 
 ---
 
-## 🗺️ Roadmap
+## Roadmap
 
 - [x] Resume parsing with skill detection
 - [x] Multi-source job aggregation (LinkedIn, Remotive, Jobicy)
@@ -323,19 +308,20 @@ sudo docker run -d -p 8000:8000 --name career-copilot -v $(pwd)/data:/app/data c
 - [x] ATS compatibility analysis
 - [x] Career planning with skill gap analysis
 - [x] Interview preparation with answer evaluation
+- [x] Cover letter generation with tone selection
 - [x] Conversational AI chat assistant
-- [x] JWT + API key authentication
-- [x] Request tracing and LLM cost tracking
+- [x] User-configurable model and API key (bring your own key)
+- [x] Docker deployment on AWS EC2
+- [ ] PostgreSQL + pgvector for persistent storage and semantic search
 - [ ] Alembic database migrations
 - [ ] WebSocket real-time job alerts
-- [ ] Browser extension for live JD analysis
 - [ ] Resume version diff and A/B testing
 - [ ] Salary negotiation coaching module
 - [ ] Multi-language resume support
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please open an issue first to discuss what you'd like to change, then submit a pull request.
 
@@ -349,9 +335,9 @@ Contributions are welcome! Please open an issue first to discuss what you'd like
 
 <div align="center">
 
-Built with ❤️ by **Mouzan Raza**
+Built with by **Mouzan Raza**
 
-*If CareerCopilot helped you land a role, consider giving this repo a ⭐ — it means the world!*
+*If CareerCopilot helped you land a role, consider giving this repo a star — it means the world!*
 
 [![Live Demo](https://img.shields.io/badge/Try%20It%20Now-13.236.67.129-6366F1?style=for-the-badge)](http://13.236.67.129/)
 
