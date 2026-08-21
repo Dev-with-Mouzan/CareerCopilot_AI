@@ -57,8 +57,12 @@ function hideLoading() {
 
 // ── Navigation ──────────────────────────────────────────────────────────────
 function navigateTo(section) {
-    if (section !== 'settings' && !isApiKeyConfigured()) {
+    const overlay = document.getElementById('api-key-overlay');
+    if (section === 'settings') {
+        if (overlay) overlay.classList.add('hidden');
+    } else if (!isApiKeyConfigured()) {
         showToast('Please set your API key and model in Settings first', 'error');
+        if (overlay) overlay.classList.remove('hidden');
         section = 'settings';
     }
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
