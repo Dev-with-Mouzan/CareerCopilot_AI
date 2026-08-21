@@ -1163,6 +1163,31 @@ select { cursor: pointer; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .loader p { font-size: 0.85rem; color: var(--text-secondary); }
 
+/* ── API Key Required Overlay ──────────────────────────────────────────────── */
+.api-key-overlay {
+    position: fixed; inset: 0; z-index: 10000;
+    background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn 0.3s ease;
+}
+.api-key-overlay.hidden { display: none; }
+.api-key-overlay-card {
+    max-width: 420px; text-align: center; padding: 40px 32px;
+    border-radius: 16px;
+}
+.api-key-overlay-icon {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: var(--accent-primary); color: #000;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px; font-size: 24px;
+}
+.api-key-overlay-card h2 { margin: 0 0 8px; font-size: 1.4rem; }
+.api-key-overlay-card p { color: var(--text-secondary); margin: 0 0 8px; font-size: 0.9rem; }
+.api-key-overlay-hint { font-size: 0.8rem !important; color: var(--text-muted) !important; margin-bottom: 20px !important; }
+.api-key-overlay-card .btn { margin-top: 8px; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
 /* ═══════════════════════════════════════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════════════════════════════════════ */

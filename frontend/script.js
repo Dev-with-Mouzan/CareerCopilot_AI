@@ -57,6 +57,10 @@ function hideLoading() {
 
 // ── Navigation ──────────────────────────────────────────────────────────────
 function navigateTo(section) {
+    if (section !== 'settings' && !isApiKeyConfigured()) {
+        showToast('Please set your API key and model in Settings first', 'error');
+        section = 'settings';
+    }
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
     const target = document.getElementById(`section-${section}`);
@@ -71,6 +75,19 @@ function navigateTo(section) {
 }
 
 // ── Settings ────────────────────────────────────────────────────────────────
+function isApiKeyConfigured() {
+    return !!(localStorage.getItem('aiApiKey') && localStorage.getItem('aiModel'));
+}
+
+function checkApiKeyRequired() {
+    const overlay = document.getElementById('api-key-overlay');
+    if (!overlay) return;
+    if (isApiKeyConfigured()) {
+        overlay.classList.add('hidden');
+    } else {
+        overlay.classList.remove('hidden');
+    }
+}
 function getSelectedModel() {
     const select = document.getElementById('settings-model');
     if (select.value === '__custom__') {
@@ -97,6 +114,7 @@ function initSettings() {
         localStorage.setItem('aiModel', model);
         if (apiKey) localStorage.setItem('aiApiKey', apiKey);
         showToast('Model settings saved', 'success');
+        checkApiKeyRequired();
     });
 
     // Load saved model
@@ -1149,6 +1167,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initLoader();
     initNavigation();
     initSettings();
+    checkApiKeyRequired();
     initResume();
     initJobs();
     initCareer();

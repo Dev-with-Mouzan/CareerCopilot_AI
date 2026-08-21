@@ -894,6 +894,17 @@
         </main>
     </div>
 
+    <!-- API Key Required Overlay -->
+    <div class="api-key-overlay" id="api-key-overlay">
+        <div class="api-key-overlay-card glass-card">
+            <div class="api-key-overlay-icon"><i class="fas fa-key"></i></div>
+            <h2>API Key Required</h2>
+            <p>To use CareerCopilot AI, you need to set your API key and model in Settings first.</p>
+            <p class="api-key-overlay-hint">We support Google Gemini, OpenAI, Groq, DeepSeek, and Qwen.</p>
+            <button class="btn btn-primary" onclick="navigateTo('settings')"><i class="fas fa-cog"></i> Open Settings</button>
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div class="toast-container" id="toast-container"></div>
 
