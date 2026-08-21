@@ -6,7 +6,7 @@ import logging
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from backend.core.schemas import UserProfile
@@ -30,7 +30,7 @@ async def generate_plan(body: _PlanBody, user: UserProfile = Depends(get_current
     """Generate a career plan either from a described field or from a resume."""
     target = (body.target_role or body.career_field or "").strip()
     if not target:
-        return {"error": "Provide a target_role or career_field"}, 400
+        raise HTTPException(status_code=400, detail="Provide a target_role or career_field")
 
     resume_id = uuid.UUID(body.resume_id) if body.resume_id else None
     resume_profile = None
@@ -39,12 +39,16 @@ async def generate_plan(body: _PlanBody, user: UserProfile = Depends(get_current
         if resume is not None:
             resume_profile = resume.parsed_profile
 
-    result = await run_career_pipeline(
-        user_id=user.id,
-        resume_id=resume_id or uuid.UUID("00000000-0000-0000-0000-000000000000"),
-        target_role=target,
-        resume_profile=resume_profile or {},
-    )
+    try:
+            result = await run_career_pipeline(
+            user_id=user.id,
+            resume_id=resume_id or uuid.UUID("00000000-0000-0000-0000-000000000000"),
+            target_role=target,
+            resume_profile=resume_profile or {},
+        )
+    except Exception as exc:
+        logger.error("Career pipeline failed: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Career plan generation failed: {exc}") from exc
 
     plan = result.get("plan", {})
     plan_id = str(uuid.uuid4())
@@ -71,9 +75,9 @@ async def get_plans(user: UserProfile = Depends(get_current_user)):
 
 @router.get("/market")
 async def get_market(user: UserProfile = Depends(get_current_user)):
-    return {"error": "Market data not available in in-memory mode"}, 501
+    raise HTTPException(status_code=501, detail="Market data not available in in-memory mode")
 
 
 @router.get("/skill-gaps")
 async def get_skill_gaps(user: UserProfile = Depends(get_current_user)):
-    return {"error": "Skill gap analysis requires a resume"}, 501
+    raise HTTPException(status_code=501, detail="Skill gap analysis requires a resume")

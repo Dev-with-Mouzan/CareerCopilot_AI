@@ -6,7 +6,7 @@ import logging
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from backend.core.schemas import UserProfile
@@ -78,7 +78,7 @@ async def list_user_conversations(user: UserProfile = Depends(get_current_user))
 async def get_conversation_detail(conv_id: uuid.UUID, user: UserProfile = Depends(get_current_user)):
     conv = get_conversation(conv_id)
     if conv is None or conv.user_id != user.id:
-        return {"error": "Conversation not found"}, 404
+        raise HTTPException(status_code=404, detail="Conversation not found")
     return {"id": str(conv.id), "title": conv.title, "messages": conv.messages}
 
 

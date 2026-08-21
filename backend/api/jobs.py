@@ -6,7 +6,7 @@ import logging
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from backend.core.schemas import UserProfile
@@ -69,12 +69,16 @@ async def search_jobs(
     if not target:
         target = "software engineer"
 
-    result = await run_job_pipeline(
-        user_id=user.id,
-        resume_id=resume_id or uuid.UUID("00000000-0000-0000-0000-000000000000"),
-        target_role=target,
-        resume_profile=resume_profile or {},
-    )
+    try:
+        result = await run_job_pipeline(
+            user_id=user.id,
+            resume_id=resume_id or uuid.UUID("00000000-0000-0000-0000-000000000000"),
+            target_role=target,
+            resume_profile=resume_profile or {},
+        )
+    except Exception as exc:
+        logger.error("Job pipeline failed: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Job search failed: {exc}") from exc
 
     matched = result.get("matched_jobs", [])
     pipeline_id = str(uuid.uuid4())
@@ -112,7 +116,7 @@ async def list_jobs(user: UserProfile = Depends(get_current_user)):
 
 @router.get("/{job_id}")
 async def get_job(job_id: uuid.UUID):
-    return {"error": "Job not found"}, 404
+    raise HTTPException(status_code=404, detail="Job not found")
 
 
 @router.post("/{job_id}/analyze")
@@ -132,17 +136,17 @@ async def analyze_job(job_id: uuid.UUID, user: UserProfile = Depends(get_current
             break
 
     if target_job is None:
-        return {"error": "Job not found"}, 404
+        raise HTTPException(status_code=404, detail="Job not found")
 
     resume = None
     resumes = list_resumes(user.id)
     resume = resumes[0] if resumes else None
     if resume is None:
-        return {"error": "Upload a resume first to run ATS analysis"}, 400
+        raise HTTPException(status_code=400, detail="Upload a resume first to run ATS analysis")
 
     job_desc = target_job.get("description") or ""
     if not job_desc:
-        return {"error": "This job has no description to analyze against"}, 400
+        raise HTTPException(status_code=400, detail="This job has no description to analyze against")
 
     state = {
         "user_id": user.id,

@@ -83,7 +83,7 @@ async def collect_from_sources_node(state: JobState) -> dict:
         jobs = await _source_manager.collect_jobs(query=query, limit=50)
     except Exception as exc:
         logger.error("Job collection failed: %s", exc)
-        return {"source_results": {}}
+        raise RuntimeError(f"Failed to collect jobs from sources: {exc}") from exc
 
     # Group jobs by source
     source_map: dict[str, list[dict]] = {}
@@ -284,8 +284,8 @@ async def generate_recommendations_node(state: JobState) -> dict:
         recommendations = [line.strip() for line in str(result).split("\n") if line.strip()]
         return {"recommendations": recommendations}
     except Exception as exc:
-        logger.warning("LLM recommendation failed: %s", exc)
-        return {"recommendations": [f"Top match: {top_jobs[0].get('title', 'N/A')} at {top_jobs[0].get('company', 'N/A')}"]}
+        logger.error("LLM recommendation failed: %s", exc)
+        raise RuntimeError(f"Failed to generate recommendations: {exc}") from exc
 
 
 async def error_node(state: JobState) -> dict:

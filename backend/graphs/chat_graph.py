@@ -293,8 +293,8 @@ async def generate_response_node(state: ChatState) -> dict:
         )
         response = str(result)
     except Exception as exc:
-        logger.warning("LLM response generation failed: %s", exc)
-        response = "I'm sorry, I encountered an error processing your request. Please try again."
+        logger.error("LLM response generation failed: %s", exc)
+        raise RuntimeError(f"Failed to generate chat response: {exc}") from exc
 
     messages_history = list(state.get("messages", []))
     messages_history.append({"role": "user", "content": message})

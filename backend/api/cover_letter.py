@@ -80,7 +80,7 @@ async def generate_cover_letter(body: _CoverLetterBody, user: UserProfile = Depe
 async def get_cover_letter(cl_id: uuid.UUID, user: UserProfile = Depends(get_current_user)):
     data = get_generic(_cover_letters, cl_id)
     if data is None:
-        return {"error": "Cover letter not found"}, 404
+        raise HTTPException(status_code=404, detail="Cover letter not found")
     return data
 
 

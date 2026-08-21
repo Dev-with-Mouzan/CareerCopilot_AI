@@ -180,8 +180,8 @@ async def generate_cover_letter_node(state: CoverLetterState) -> dict:
 
         return {"cover_letter": str(result), "error": None}
     except Exception as exc:
-        logger.warning("Cover letter generation failed: %s", exc)
-        return {"cover_letter": _fallback_cover_letter(state), "error": None}
+        logger.error("Cover letter generation failed: %s", exc)
+        raise RuntimeError(f"Failed to generate cover letter: {exc}") from exc
 
 
 async def refine_tone_node(state: CoverLetterState) -> dict:

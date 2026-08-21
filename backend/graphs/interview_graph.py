@@ -101,15 +101,7 @@ async def generate_questions_node(state: InterviewState) -> dict:
 
     except Exception as exc:
         logger.error("Question generation failed: %s", exc)
-        return {
-            "questions": [
-                InterviewQuestion(
-                    question="Tell me about your experience with the technologies listed on your resume.",
-                    category=InterviewCategory.resume,
-                ).model_dump()
-            ],
-            "current_question_index": 0,
-        }
+        raise RuntimeError(f"Failed to generate interview questions: {exc}") from exc
 
 
 async def present_question_node(state: InterviewState) -> dict:
@@ -177,8 +169,8 @@ async def evaluate_answer_node(state: InterviewState) -> dict:
         return {"evaluation": evaluation}
 
     except Exception as exc:
-        logger.warning("Answer evaluation failed: %s", exc)
-        return {"evaluation": {"feedback": "Evaluation temporarily unavailable.", "score": 5}}
+        logger.error("Answer evaluation failed: %s", exc)
+        raise RuntimeError(f"Failed to evaluate answer: {exc}") from exc
 
 
 async def provide_feedback_node(state: InterviewState) -> dict:

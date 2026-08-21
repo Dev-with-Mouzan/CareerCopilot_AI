@@ -112,11 +112,8 @@ async def generate_learning_plan_node(state: CareerState) -> dict:
         )
         return {"plan": {"learning_priorities": [str(result)]}}
     except Exception as exc:
-        logger.warning("LLM learning plan failed: %s", exc)
-        fallback = [
-            f"Focus on: {', '.join(g.get('skill', '') for g in top_gaps[:5])}"
-        ]
-        return {"plan": {"learning_priorities": fallback}}
+        logger.error("LLM learning plan failed: %s", exc)
+        raise RuntimeError(f"Failed to generate learning plan: {exc}") from exc
 
 
 async def generate_projects_node(state: CareerState) -> dict:
@@ -140,8 +137,8 @@ async def generate_projects_node(state: CareerState) -> dict:
         plan = state.get("plan", {})
         return {"plan": {**plan, "projects_suggestion": str(result)}}
     except Exception as exc:
-        logger.warning("LLM project suggestion failed: %s", exc)
-        return {"plan": state.get("plan", {})}
+        logger.error("LLM project suggestion failed: %s", exc)
+        raise RuntimeError(f"Failed to generate project suggestions: {exc}") from exc
 
 
 async def generate_timeline_node(state: CareerState) -> dict:
@@ -185,15 +182,8 @@ async def generate_application_strategy_node(state: CareerState) -> dict:
         plan = state.get("plan", {})
         return {"plan": {**plan, "application_strategy": str(result)}}
     except Exception as exc:
-        logger.warning("LLM strategy failed: %s", exc)
-        plan = state.get("plan", {})
-        fallback = (
-            f"Tailor your resume and cover letter with {target_role} keywords. "
-            "Apply directly on company career pages, use LinkedIn Easy Apply, and "
-            "reach out to 2-3 recruiters weekly. Prepare 2-3 strong stories with "
-            "measurable outcomes for interviews."
-        )
-        return {"plan": {**plan, "application_strategy": fallback}}
+        logger.error("LLM strategy failed: %s", exc)
+        raise RuntimeError(f"Failed to generate application strategy: {exc}") from exc
 
 
 async def synthesize_plan_node(state: CareerState) -> dict:

@@ -4,13 +4,22 @@
 
 const API_BASE = '/api';
 
-function apiFetch(url, options = {}) {
+async function apiFetch(url, options = {}) {
     const headers = { ...(options.headers || {}) };
     const apiKey = localStorage.getItem('aiApiKey');
     if (apiKey) headers['X-API-Key'] = apiKey;
     const model = localStorage.getItem('aiModel');
     if (model) headers['X-Model'] = model;
-    return fetch(url, { ...options, headers });
+    const res = await fetch(url, { ...options, headers });
+    if (!res.ok) {
+        let msg = `Request failed (${res.status})`;
+        try {
+            const body = await res.json();
+            msg = body.detail || body.error || msg;
+        } catch (_) { /* non-JSON error */ }
+        throw new Error(msg);
+    }
+    return res;
 }
 
 let resumeData = null;
@@ -178,10 +187,6 @@ async function uploadResume(file) {
             body: formData,
         }).then(r => r.json());
         hideLoading();
-        if (data.error) {
-            showToast(data.error, 'error');
-            return;
-        }
         resumeData = data;
         document.getElementById('upload-zone').classList.add('hidden');
         document.getElementById('resume-card').classList.remove('hidden');
@@ -260,13 +265,12 @@ async function searchJobs() {
             body: JSON.stringify({ target_role: keywords.trim(), location }),
         }).then(r => r.json());
         hideLoading();
-        if (data.error) return showToast(data.error, 'error');
         jobsData = (data.jobs || []).slice(0, 15);
         renderJobs();
         showToast(`Found ${jobsData.length} jobs`, jobsData.length ? 'success' : 'info');
     } catch (err) {
         hideLoading();
-        showToast('Search failed', 'error');
+        showToast(err.message || 'Search failed', 'error');
     }
 }
 
@@ -280,13 +284,12 @@ async function searchResumeJobs() {
             body: JSON.stringify({ resume_id: resumeData.resume_id }),
         }).then(r => r.json());
         hideLoading();
-        if (data.error) return showToast(data.error, 'error');
         jobsData = (data.jobs || []).slice(0, 15);
         renderJobs();
         showToast(`Found ${jobsData.length} matched jobs`, jobsData.length ? 'success' : 'info');
     } catch (err) {
         hideLoading();
-        showToast('Matching failed', 'error');
+        showToast(err.message || 'Matching failed', 'error');
     }
 }
 
@@ -482,7 +485,6 @@ async function generateCareerPlan() {
             body: JSON.stringify(payload),
         }).then(r => r.json());
         hideLoading();
-        if (data.error) return showToast(data.error, 'error');
         careerPlan = data;
         const result = document.getElementById('career-plan-result');
         result.classList.remove('hidden');
@@ -492,7 +494,7 @@ async function generateCareerPlan() {
         updateDashboardProgress();
     } catch (err) {
         hideLoading();
-        showToast('Generation failed', 'error');
+        showToast(err.message || 'Generation failed', 'error');
     }
 }
 
@@ -591,7 +593,6 @@ async function startInterview() {
             }),
         }).then(r => r.json());
         hideLoading();
-        if (data.error) return showToast(data.error, 'error');
         interviewSession = data;
         currentQuestionIndex = 0;
         document.getElementById('interview-setup-card').classList.add('hidden');
@@ -601,7 +602,7 @@ async function startInterview() {
         showToast(`${data.total_questions} questions ready`, 'success');
     } catch (err) {
         hideLoading();
-        showToast('Failed to start interview', 'error');
+        showToast(err.message || 'Failed to start interview', 'error');
     }
 }
 
@@ -645,17 +646,11 @@ async function submitInterviewAnswer() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ question_index: currentQuestionIndex, answer: answer.trim() }),
         }).then(r => r.json());
-        if (data.error) {
-            showToast(data.error, 'error');
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fas fa-check"></i> Submit Answer';
-            return;
-        }
         renderInterviewFeedback(data);
     } catch (err) {
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fas fa-check"></i> Submit Answer';
-        showToast('Feedback failed', 'error');
+        showToast(err.message || 'Feedback failed', 'error');
     }
 }
 
@@ -711,12 +706,11 @@ async function finishInterview() {
             method: 'GET',
         }).then(r => r.json());
         hideLoading();
-        if (data.error) return showToast(data.error, 'error');
         if (data.completed) markInterviewCompleted();
         renderInterviewResults(data);
     } catch (err) {
         hideLoading();
-        showToast('Failed to load results', 'error');
+        showToast(err.message || 'Failed to load results', 'error');
     }
 }
 
@@ -867,14 +861,12 @@ async function generateCoverLetter() {
 
     showLoading('Generating cover letter...');
     try {
-        const res = await apiFetch(`${API_BASE}/cover-letters`, {
+        const data = await apiFetch(`${API_BASE}/cover-letters`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
-        });
-        const data = await res.json();
+        }).then(r => r.json());
         hideLoading();
-        if (!res.ok || data.error || data.detail) return showToast(data.error || data.detail || 'Generation failed', 'error');
         const content = data.content || data.cover_letter || data.text || '';
         document.getElementById('cl-result').classList.remove('hidden');
         document.getElementById('cl-result-content').textContent = content;
@@ -941,13 +933,11 @@ async function submitReview() {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
     try {
-        const res = await apiFetch(`${API_BASE}/reviews`, {
+        await apiFetch(`${API_BASE}/reviews`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, email, review, profession }),
         });
-        const data = await res.json();
-        if (!res.ok || data.detail) return showToast(data.detail || 'Failed to submit review', 'error');
         document.getElementById('review-name').value = '';
         document.getElementById('review-email').value = '';
         document.getElementById('review-profession').value = '';
@@ -955,7 +945,7 @@ async function submitReview() {
         showToast('Thank you for your review!', 'success');
         await Promise.all([loadReviews(), loadHomeTestimonials()]);
     } catch (err) {
-        showToast('Failed to submit review', 'error');
+        showToast(err.message || 'Failed to submit review', 'error');
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Review';
@@ -985,8 +975,7 @@ function formatReviewDate(iso) {
 
 async function loadReviews() {
     try {
-        const res = await apiFetch(`${API_BASE}/reviews`);
-        const data = await res.json();
+        const data = await apiFetch(`${API_BASE}/reviews`).then(r => r.json());
         const list = document.getElementById('reviews-list');
         const reviews = data.reviews || [];
         if (!reviews.length) {
@@ -1015,8 +1004,7 @@ async function loadHomeTestimonials() {
     const container = document.getElementById('home-testimonials');
     if (!container) return;
     try {
-        const res = await apiFetch(`${API_BASE}/reviews`);
-        const data = await res.json();
+        const data = await apiFetch(`${API_BASE}/reviews`).then(r => r.json());
         const reviews = data.reviews || [];
         if (!reviews.length) return; // keep the default static testimonials
         const shuffled = [...reviews].sort(() => 0.5 - Math.random()).slice(0, 3);
@@ -1109,7 +1097,7 @@ async function sendMessage() {
         messagesDiv.innerHTML += `
             <div class="chat-msg assistant">
                 <div class="chat-msg-avatar ai"><i class="fas fa-robot"></i></div>
-                <div class="chat-msg-bubble" style="color:#ef4444">Connection error. Please try again.</div>
+                <div class="chat-msg-bubble" style="color:#ef4444">Error: ${err.message || 'Connection failed. Please try again.'}</div>
             </div>
         `;
     }
