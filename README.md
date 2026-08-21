@@ -318,12 +318,7 @@ docker run -d -p 8000:8000 --name career-copilot \
 - [x] Conversational AI chat assistant
 - [x] User-configurable model and API key (bring your own key)
 - [x] Docker deployment on AWS EC2
-- [ ] PostgreSQL + pgvector for persistent storage and semantic search
-- [ ] Alembic database migrations
-- [ ] WebSocket real-time job alerts
-- [ ] Resume version diff and A/B testing
-- [ ] Salary negotiation coaching module
-- [ ] Multi-language resume support
+- [x] Multi-language resume support
 
 ---
 
