@@ -75,7 +75,12 @@ async def extract_keywords_node(state: JobState) -> dict:
 
 async def collect_from_sources_node(state: JobState) -> dict:
     """Query all registered job sources in parallel with failure isolation."""
-    query = " ".join(state.get("query_keywords", []))
+    keywords = state.get("query_keywords", [])
+    location = state.get("user_location", "")
+    parts = list(keywords)
+    if location:
+        parts.append(location)
+    query = " ".join(parts)
     if not query:
         return {"source_results": {}}
 
@@ -164,6 +169,7 @@ async def filter_candidates_node(state: JobState) -> dict:
     """Pre-filter candidates based on basic criteria (remove obviously irrelevant)."""
     candidates = state.get("candidate_jobs", [])
     keywords = [k.lower() for k in state.get("query_keywords", [])]
+    user_location = state.get("user_location", "").lower().strip()
 
     filtered = []
     for job_data in candidates:
@@ -173,8 +179,31 @@ async def filter_candidates_node(state: JobState) -> dict:
 
         # Basic relevance check: at least one keyword must match
         combined_text = f"{title} {' '.join(skills)} {desc}"
-        if any(kw in combined_text for kw in keywords):
-            filtered.append(job_data)
+        if not any(kw in combined_text for kw in keywords):
+            continue
+
+        # Location filter: strictly match user's requested location
+        # remote jobs are always relevant; empty-location jobs are skipped
+        job_location = (job_data.get("location", "") or "").lower()
+        is_remote = job_data.get("remote", False)
+        if user_location and not is_remote:
+            if not job_location:
+                # No location listed — skip (user asked for a specific place)
+                continue
+            # Normalize for comparison: strip common suffixes
+            def _loc_key(loc: str) -> str:
+                return loc.replace(", ", ",").replace(" metro area", "").replace(" area", "").strip()
+            ul = _loc_key(user_location)
+            jl = _loc_key(job_location)
+            # Require at least one to contain the other, or share a city token
+            if not (ul in jl or jl in ul):
+                # Fallback: check if any comma-separated token matches
+                ul_tokens = set(t.strip() for t in ul.split(",") if len(t.strip()) > 2)
+                jl_tokens = set(t.strip() for t in jl.split(",") if len(t.strip()) > 2)
+                if not (ul_tokens & jl_tokens):
+                    continue
+
+        filtered.append(job_data)
 
     return {"candidate_jobs": filtered}
 
@@ -197,6 +226,7 @@ async def score_matches_node(state: JobState) -> dict:
         resume_skill_names = state.get("query_keywords", [])
 
     resume_skills = set(s.lower() for s in resume_skill_names)
+    user_location = state.get("user_location", "").lower().strip()
 
     matched: list[dict] = []
     embedding_service = get_embedding_service()
@@ -228,18 +258,41 @@ async def score_matches_node(state: JobState) -> dict:
             except Exception:
                 semantic_score = 0.5
 
+        # Location score: compare job location against user preference
+        is_remote = job_data.get("remote", False)
+        job_location = (job_data.get("location", "") or "").lower()
+        def _loc_key(loc: str) -> str:
+            return loc.replace(", ", ",").replace(" metro area", "").replace(" area", "").strip()
+        if is_remote:
+            location_score = 0.95
+        elif user_location and job_location:
+            ul = _loc_key(user_location)
+            jl = _loc_key(job_location)
+            if ul in jl or jl in ul:
+                location_score = 1.0
+            else:
+                ul_tokens = set(t.strip() for t in ul.split(",") if len(t.strip()) > 2)
+                jl_tokens = set(t.strip() for t in jl.split(",") if len(t.strip()) > 2)
+                location_score = 1.0 if (ul_tokens & jl_tokens) else 0.3
+        else:
+            location_score = 0.7  # unknown location — neutral
+
         # Composite score
-        overall = (overlap * 0.4 + title_score * 0.3 + semantic_score * 0.3)
+        overall = (overlap * 0.35 + title_score * 0.25 + semantic_score * 0.25 + location_score * 0.15)
 
         missing = list(job_skills - resume_skills)
 
+        # Ensure the job dict has a stable UUID for the analyze endpoint
+        if not job_data.get("id"):
+            job_data["id"] = str(uuid.uuid4())
+
         match = JobMatch(
-            job_id=job_data.get("id") or uuid.uuid4(),
+            job_id=job_data["id"],
             overall_score=round(overall, 3),
             skill_score=round(overlap, 3),
             experience_score=0.8,  # default; would need DB data
             seniority_score=0.8,
-            location_score=0.9 if job_data.get("remote") else 0.7,
+            location_score=round(location_score, 3),
             salary_score=0.8,
             semantic_score=round(semantic_score, 3),
             missing_skills=missing,

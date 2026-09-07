@@ -89,6 +89,7 @@ async def run_job_pipeline(
     resume_id: UUID,
     target_role: str,
     resume_profile: dict | None = None,
+    user_location: str = "",
 ) -> dict[str, Any]:
     """Run the job discovery and matching pipeline."""
     pipeline = _get_job_pipeline()
@@ -97,6 +98,7 @@ async def run_job_pipeline(
         "user_id": user_id,
         "resume_id": resume_id,
         "target_role": target_role,
+        "user_location": user_location,
         "query_keywords": [],
         "source_results": {},
         "normalized_jobs": [],
@@ -254,6 +256,7 @@ async def run_full_pipeline(
     target_role: str,
     job_description: str = "",
     job_id: UUID | None = None,
+    user_location: str = "",
 ) -> dict[str, Any]:
     """
     Run the complete career intelligence pipeline:
@@ -278,7 +281,7 @@ async def run_full_pipeline(
 
     # Stage 2: Job discovery
     logger.info("Full pipeline: Stage 2/4 - Job discovery")
-    job_result = await run_job_pipeline(user_id, resume_id, target_role)
+    job_result = await run_job_pipeline(user_id, resume_id, target_role, user_location=user_location)
     results["jobs"] = job_result
 
     matched_jobs = job_result.get("matched_jobs", [])

@@ -350,12 +350,12 @@ async def _evaluate_answer(question: dict, answer: str) -> dict:
         "1. Score (integer 1-10)\n"
         "2. Strengths: 2-3 bullet points of what was good\n"
         "3. Improvements: 2-3 bullet points of what could be better\n"
-        "4. Model Answer: A concise outline of a strong answer\n\n"
+        "4. Model Answer: A well-structured, detailed answer using markdown formatting\n\n"
         "Format:\n"
         "SCORE: <number>\n"
         "STRENGTHS:\n- ...\n- ...\n"
         "IMPROVEMENTS:\n- ...\n- ...\n"
-        "MODEL ANSWER:\n<text>"
+        "MODEL ANSWER:\n<use markdown with headings, bold, bullet points, and numbered lists as needed>"
     )
 
     try:

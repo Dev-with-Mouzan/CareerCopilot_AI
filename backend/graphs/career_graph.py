@@ -101,8 +101,12 @@ async def generate_learning_plan_node(state: CareerState) -> dict:
     prompt = (
         f"Target role: {target_role}\n"
         f"Top skill gaps:\n{gap_summary}\n\n"
-        "Create a prioritized learning plan with specific resources, courses, or projects "
-        "for each gap. Format as a numbered list."
+        "Create a prioritized learning plan. For EACH skill gap, provide:\n"
+        "1. The specific skill to learn\n"
+        "2. A concrete resource (course, book, or tutorial name)\n"
+        "3. A hands-on project or exercise to practice it\n\n"
+        "Format each item as a single concise line: 'Skill — Resource — Practice method'\n"
+        "Keep it actionable and specific. No generic advice."
     )
 
     try:
@@ -110,7 +114,10 @@ async def generate_learning_plan_node(state: CareerState) -> dict:
             messages=[{"role": "user", "content": prompt}],
             category=TaskCategory.CAREER_STRATEGY,
         )
-        return {"plan": {"learning_priorities": [str(result)]}}
+        # Split LLM response into individual items
+        raw = str(result).strip()
+        items = [line.strip("0123456789. )-\t") for line in raw.split("\n") if line.strip() and len(line.strip()) > 10]
+        return {"plan": {"learning_priorities": items or [raw]}}
     except Exception as exc:
         logger.error("LLM learning plan failed: %s", exc)
         raise RuntimeError(f"Failed to generate learning plan: {exc}") from exc
@@ -124,9 +131,10 @@ async def generate_projects_node(state: CareerState) -> dict:
 
     prompt = (
         f"Target role: {target_role}\n"
-        f"Skills to demonstrate: {', '.join(top_skills)}\n\n"
-        "Suggest 3 portfolio projects that would showcase these skills. "
-        "For each project, provide: name, brief description, and technologies used."
+        f"Skills to master: {', '.join(top_skills)}\n\n"
+        "Suggest 3 progressive projects to build expertise in this field. "
+        "For each project, provide: name, what you'll learn, and technologies used. "
+        "Start with a foundational project and increase in complexity."
     )
 
     try:
@@ -144,14 +152,21 @@ async def generate_projects_node(state: CareerState) -> dict:
 async def generate_timeline_node(state: CareerState) -> dict:
     """Generate a realistic timeline for the career transition."""
     gaps = state.get("skill_gaps", [])
+    target_role = state.get("target_role", "")
     high_priority = [g for g in gaps if isinstance(g, dict) and g.get("priority", 99) <= 2]
+    all_gaps = [g for g in gaps if isinstance(g, dict)]
     months = max(len(high_priority) * 2, 3)
 
+    # Build skill names for timeline context
+    gap_skills = [g.get("skill", "") for g in all_gaps[:5]]
+    skills_str = ", ".join(filter(None, gap_skills)) or "core skills"
+
     timeline = {
-        "immediate": "Update resume and LinkedIn with target role keywords",
-        "month_1_2": "Complete top 2 priority skill courses",
-        "month_3_4": "Build portfolio projects demonstrating new skills",
-        "month_5_6": "Begin active job applications and networking",
+        "phase_1_weeks_1_2": f"Update resume, LinkedIn, and portfolio with {target_role} keywords. Audit current skills vs. requirements.",
+        "phase_2_weeks_3_8": f"Deep-dive into top priority gaps: {skills_str}. Complete courses, certifications, or tutorials.",
+        "phase_3_weeks_9_14": f"Build 2-3 portfolio projects demonstrating {target_role} competencies. Contribute to open source if applicable.",
+        "phase_4_weeks_15_20": f"Begin targeted applications to {target_role} roles. Network with professionals in the field.",
+        "phase_5_weeks_21_plus": "Interview preparation, mock interviews, and iterative application refinement.",
         "total_estimated_months": str(months),
     }
 
@@ -159,19 +174,19 @@ async def generate_timeline_node(state: CareerState) -> dict:
     return {"plan": {**plan, "timeline": timeline}}
 
 
-async def generate_application_strategy_node(state: CareerState) -> dict:
-    """Use LLM to generate an application strategy."""
+async def generate_expertise_milestones_node(state: CareerState) -> dict:
+    """Use LLM to generate expertise milestones for the target field."""
     target_role = state.get("target_role", "")
-    market = state.get("market_data", {})
-    remote_pct = market.get("remote_percentage", 0)
-    salary = market.get("salary_distribution", {})
+    gaps = state.get("skill_gaps", [])
+    top_skills = [g.get("skill", "") for g in gaps if isinstance(g, dict)][:5]
 
     prompt = (
-        f"Target role: {target_role}\n"
-        f"Remote job availability: {remote_pct}%\n"
-        f"Salary range: ${salary.get('min', 'N/A')} - ${salary.get('max', 'N/A')}\n\n"
-        "Provide a concise application strategy covering: "
-        "where to apply, how to stand out, networking tips, and timing."
+        f"Target field: {target_role}\n"
+        f"Key skills to master: {', '.join(top_skills)}\n\n"
+        "Create 4-6 concrete expertise milestones for mastering this field. "
+        "Each milestone should be a measurable achievement, not just 'learn X'. "
+        "Cover: fundamentals, intermediate depth, advanced projects, and real-world application.\n\n"
+        "Format as a numbered list. Be specific to this field, not generic."
     )
 
     try:
@@ -192,15 +207,23 @@ async def synthesize_plan_node(state: CareerState) -> dict:
     gaps = state.get("skill_gaps", [])
     market = state.get("market_data", {})
 
+    # Build structured projects from LLM text if available
+    projects_text = plan_data.get("projects_suggestion", "")
+
     career_plan = CareerPlan(
         current_state=market.get("_current_state_summary", ""),
-        target_state=f"Transition to {state.get('target_role', 'target role')}",
+        target_state=f"Master {state.get('target_role', 'target field')}",
         skill_gaps=[SkillGap(**g) for g in gaps if isinstance(g, dict)],
         learning_priorities=plan_data.get("learning_priorities", []),
         timeline=plan_data.get("timeline", {}),
-        interview_prep="Focus on behavioral + technical questions for target role",
-        application_strategy=plan_data.get("application_strategy", ""),
+        interview_prep="",
+        application_strategy=plan_data.get("expertise_milestones", ""),
     )
+
+    plan_dict = career_plan.model_dump()
+    # Attach raw projects text for frontend rendering
+    if projects_text:
+        plan_dict["projects_suggestion"] = projects_text
 
     logger.info(
         "Career plan synthesized: %d skill gaps, target=%s",
@@ -208,7 +231,7 @@ async def synthesize_plan_node(state: CareerState) -> dict:
         state.get("target_role"),
     )
 
-    return {"plan": career_plan.model_dump()}
+    return {"plan": plan_dict}
 
 
 async def error_node(state: CareerState) -> dict:
@@ -241,7 +264,7 @@ def build_career_graph() -> StateGraph:
     graph.add_node("generate_learning_plan", generate_learning_plan_node)
     graph.add_node("generate_projects", generate_projects_node)
     graph.add_node("generate_timeline", generate_timeline_node)
-    graph.add_node("generate_application_strategy", generate_application_strategy_node)
+    graph.add_node("generate_expertise_milestones", generate_expertise_milestones_node)
     graph.add_node("synthesize_plan", synthesize_plan_node)
     graph.add_node("error_node", error_node)
 
@@ -255,8 +278,8 @@ def build_career_graph() -> StateGraph:
     )
     graph.add_edge("generate_learning_plan", "generate_projects")
     graph.add_edge("generate_projects", "generate_timeline")
-    graph.add_edge("generate_timeline", "generate_application_strategy")
-    graph.add_edge("generate_application_strategy", "synthesize_plan")
+    graph.add_edge("generate_timeline", "generate_expertise_milestones")
+    graph.add_edge("generate_expertise_milestones", "synthesize_plan")
     graph.add_edge("synthesize_plan", END)
     graph.add_edge("error_node", END)
 

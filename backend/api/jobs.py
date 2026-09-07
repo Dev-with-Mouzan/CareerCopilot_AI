@@ -49,13 +49,9 @@ async def search_jobs(
         if resume is not None:
             resume_profile = resume.parsed_profile
 
-    # Derive search keywords from the resume when no explicit target given
+    # Derive rich search keywords from the resume when no explicit target given
     if not target and resume_profile:
-        skills = [
-            s.get("name", "")
-            for s in resume_profile.get("skills", [])
-            if isinstance(s, dict) and s.get("name")
-        ][:12]
+        # 1. Get target role from profile or latest experience
         target_roles = resume_profile.get("target_roles", []) or []
         if target_roles:
             target = target_roles[0]
@@ -63,8 +59,25 @@ async def search_jobs(
             latest = resume_profile["experience"][0]
             if isinstance(latest, dict):
                 target = latest.get("title", "")
-        if skills:
-            target = (target + " " + " ".join(skills[:6])).strip()
+
+        # 2. Collect ALL skills from the profile
+        all_skills = [
+            s.get("name", "")
+            for s in resume_profile.get("skills", [])
+            if isinstance(s, dict) and s.get("name")
+        ]
+
+        # 3. Extract role-related keywords from experience titles
+        exp_titles = []
+        for exp in (resume_profile.get("experience") or [])[:3]:
+            if isinstance(exp, dict) and exp.get("title"):
+                exp_titles.append(exp["title"])
+
+        # 4. Build a comprehensive query: role + top skills + experience context
+        query_parts = [target] if target else []
+        query_parts.extend(all_skills[:10])  # more skills for broader matching
+        query_parts.extend(exp_titles[:2])   # recent role titles
+        target = " ".join(query_parts).strip()
 
     if not target:
         target = "software engineer"
@@ -75,6 +88,7 @@ async def search_jobs(
             resume_id=resume_id or uuid.UUID("00000000-0000-0000-0000-000000000000"),
             target_role=target,
             resume_profile=resume_profile or {},
+            user_location=body.location or "",
         )
     except Exception as exc:
         logger.error("Job pipeline failed: %s", exc)
@@ -138,15 +152,29 @@ async def analyze_job(job_id: uuid.UUID, user: UserProfile = Depends(get_current
     if target_job is None:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    resume = None
     resumes = list_resumes(user.id)
     resume = resumes[0] if resumes else None
     if resume is None:
+        logger.warning("ATS analyze: no resume found for user=%s", user.id)
         raise HTTPException(status_code=400, detail="Upload a resume first to run ATS analysis")
 
-    job_desc = target_job.get("description") or ""
+    job_desc = target_job.get("description") or target_job.get("job_description") or ""
     if not job_desc:
-        raise HTTPException(status_code=400, detail="This job has no description to analyze against")
+        # Some sources (e.g. LinkedIn scraper) don't fetch full descriptions.
+        # Build a synthetic description from available fields so ATS can still run.
+        parts = []
+        if target_job.get("title"):
+            parts.append(f"Role: {target_job['title']}")
+        if target_job.get("company"):
+            parts.append(f"Company: {target_job['company']}")
+        if target_job.get("skills"):
+            parts.append(f"Required skills: {', '.join(target_job['skills'])}")
+        if target_job.get("location"):
+            parts.append(f"Location: {target_job['location']}")
+        job_desc = "\n".join(parts)
+        if not job_desc:
+            logger.warning("ATS analyze: no data for job_id=%s keys=%s", job_id, list(target_job.keys()))
+            raise HTTPException(status_code=400, detail="This job has no information to analyze against")
 
     state = {
         "user_id": user.id,
@@ -161,7 +189,7 @@ async def analyze_job(job_id: uuid.UUID, user: UserProfile = Depends(get_current
     # Merge into the job's existing match for display
     if "match" not in target_job:
         target_job["match"] = {}
-    target_job["match"]["overall_score"] = report.get("overall_score", 0) / 100
+    target_job["match"]["overall_score"] = report.get("overall_score", 0)
     target_job["match"]["missing_skills"] = report.get("missing_skills", [])
     target_job["match"]["missing_keywords"] = report.get("missing_keywords", [])
     target_job["match"]["ats_report"] = report

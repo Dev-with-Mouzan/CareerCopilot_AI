@@ -191,7 +191,7 @@ function initResume() {
         if (e.target.files.length) uploadResume(e.target.files[0]);
     });
 
-    document.getElementById('analyze-ats-btn').addEventListener('click', analyzeATS);
+    document.getElementById('analyze-ats-btn')?.addEventListener('click', analyzeATS);
     document.getElementById('delete-resume-btn').addEventListener('click', deleteResume);
 }
 
@@ -212,11 +212,21 @@ async function uploadResume(file) {
         resumeData = data;
         document.getElementById('upload-zone').classList.add('hidden');
         document.getElementById('resume-card').classList.remove('hidden');
+        document.getElementById('resume-tips').classList.add('hidden');
+        document.getElementById('resume-next-steps').classList.remove('hidden');
         document.getElementById('resume-filename').textContent = file.name;
         document.getElementById('resume-words').textContent = data.word_count || '—';
         document.getElementById('resume-sections').textContent = data.sections_found || '—';
-        document.getElementById('resume-ats-score').textContent = data.ats_score ? `${data.ats_score}%` : '—';
-        document.getElementById('resume-profile').textContent = data.summary || '';
+        if (data.ats_score) {
+            const atsEl = document.getElementById('resume-ats-score');
+            if (atsEl) atsEl.textContent = `${data.ats_score}%`;
+        }
+        const profileEl = document.getElementById('resume-profile');
+        if (data.summary) {
+            profileEl.textContent = data.summary;
+        } else {
+            profileEl.innerHTML = `<div class="resume-profile-empty"><i class="fas fa-sparkles"></i><p>Resume parsed successfully. Use the actions below to get matched jobs, ATS scores, or practice interviews.</p></div>`;
+        }
         showToast('Resume uploaded successfully', 'success');
         updateDashboardProgress();
     } catch (err) {
@@ -243,6 +253,9 @@ function deleteResume() {
     resumeData = null;
     document.getElementById('upload-zone').classList.remove('hidden');
     document.getElementById('resume-card').classList.add('hidden');
+    document.getElementById('resume-tips').classList.remove('hidden');
+    document.getElementById('resume-next-steps').classList.add('hidden');
+    document.getElementById('resume-profile').innerHTML = `<div class="resume-profile-empty"><i class="fas fa-sparkles"></i><p>Upload complete. Your resume has been parsed and is ready for analysis.</p><span>Use the actions below to get matched jobs, ATS scores, or practice interviews.</span></div>`;
     showToast('Resume removed', 'info');
 }
 
@@ -333,7 +346,8 @@ function renderJobs() {
     list.innerHTML = jobsData.map((job, i) => {
         const match = job.match || {};
         const score = match.overall_score;
-        const scorePct = score != null ? Math.round(score * 100) : null;
+        // Score can be 0-1 (from pipeline) or 0-100 (from ATS) — normalize to 0-100
+        const scorePct = score != null ? (score > 1 ? Math.round(score) : Math.round(score * 100)) : null;
         const missing = (match.missing_skills || []).slice(0, 4);
         const source = job.source || '';
         const desc = job.description || '';
@@ -375,7 +389,7 @@ function renderJobs() {
             ${desc ? `<div class="job-desc">${desc.slice(0, 200)}${desc.length > 200 ? '...' : ''}</div>` : ''}
             <div class="job-actions">
                 <button class="btn btn-primary btn-sm" onclick="analyzeJob(${i})"><i class="fas fa-clipboard-check"></i> ATS</button>
-                ${job.source_url ? `<a class="btn btn-ghost btn-sm job-apply-link" href="${job.source_url}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Apply Now</a>` : ''}
+                <a class="btn btn-primary btn-sm job-apply-link" href="${job.source_url || `https://www.google.com/search?q=${encodeURIComponent((job.title || '') + ' ' + (job.company || '') + ' job apply')}`}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Apply Now</a>
             </div>
         </div>
     `;
@@ -385,13 +399,14 @@ function renderJobs() {
 async function analyzeJob(index) {
     const job = jobsData[index];
     if (!job) return;
-    if (!resumeData?.resume_id) return showToast('Upload a resume first to run ATS analysis', 'error');
     showLoading('Analyzing job match...');
     try {
-        const res = await apiFetch(`${API_BASE}/jobs/${job.id || job.job_id}/analyze`, {
+        const jobId = job.id || job.match?.job_id || job.job_id;
+        if (!jobId) { hideLoading(); return showToast('Job ID not found', 'error'); }
+        const res = await apiFetch(`${API_BASE}/jobs/${jobId}/analyze`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ resume_id: resumeData.resume_id }),
+            body: JSON.stringify({ resume_id: resumeData?.resume_id || null }),
         });
         const data = await res.json();
         hideLoading();
@@ -423,7 +438,8 @@ function renderAtsModal(job, report) {
         ['Semantic', report.semantic_score],
         ['Education', report.education_score],
     ].filter(([, v]) => v != null);
-    const pct = v => Math.round((v || 0) * 100);
+    // ATS scores are already 0-100, just round them
+    const pct = v => Math.round(v || 0);
 
     let html = `
         <div class="ats-job-info">
@@ -450,7 +466,7 @@ function renderAtsModal(job, report) {
         html += `<div class="ats-section"><h4>Missing Skills</h4><div class="ats-chips">${report.missing_skills.slice(0, 15).map(k => `<span class="ats-chip">${k}</span>`).join('')}</div></div>`;
     }
     if (report.recommendations && report.recommendations.length) {
-        html += `<div class="ats-section"><h4>Recommendations</h4><ul class="ats-recs">${report.recommendations.map(r => `<li>${window.marked ? marked.parseInline(r) : r}</li>`).join('')}</ul></div>`;
+        html += `<div class="ats-section"><h4>Recommendations</h4><div class="ats-recs-markdown">${report.recommendations.map(r => window.marked ? marked.parse(r) : `<p>${r}</p>`).join('')}</div></div>`;
     }
 
     body.innerHTML = html;
@@ -526,48 +542,93 @@ function renderCareerPlan(data) {
     const skillGaps = plan.skill_gaps || data.skill_gaps || [];
     const learning = plan.learning_priorities || [];
     const timeline = plan.timeline || {};
-    const strategy = plan.application_strategy || plan.strategy || '';
-    const current = plan.current_state || '';
-    const targetState = plan.target_state || `Transition to ${target}`;
+    const projectsText = plan.projects_suggestion || '';
 
-    let html = `<div class="career-plan-result-card glass-card">
-        <h3 style="margin-bottom:16px"><i class="fas fa-route" style="color:var(--accent-primary)"></i> Your Career Plan</h3>`;
+    let html = '';
 
-    if (target) html += `<div class="career-plan-section"><strong>Target:</strong> ${target}</div>`;
-    if (current) html += `<div class="career-plan-section"><strong>Current:</strong> ${current}</div>`;
-    if (targetState) html += `<div class="career-plan-section"><strong>Goal:</strong> ${targetState}</div>`;
+    // ── Header card ──
+    html += `<div class="cp-header glass-card">
+        <div class="cp-header-top">
+            <div class="cp-header-icon"><i class="fas fa-route"></i></div>
+            <div>
+                <h3 class="cp-header-title">Expertise Roadmap</h3>
+                <p class="cp-header-sub">${target ? `Your path to mastering <strong>${target}</strong>` : 'Your personalized learning path'}</p>
+            </div>
+        </div>
+    </div>`;
 
+    // ── Skill Gaps ──
     if (skillGaps.length) {
-        html += `<div class="career-plan-section"><h4>Skill Gaps</h4><ul>`;
-        skillGaps.slice(0, 8).forEach(g => {
-            const gObj = typeof g === 'string' ? { skill: g } : g;
-            html += `<li><strong>${gObj.skill || 'Skill'}</strong> ${gObj.priority ? `(priority ${gObj.priority})` : ''} — ${gObj.market_demand || ''}</li>`;
-        });
-        html += `</ul></div>`;
+        const priorityColor = (p) => p <= 1 ? '#ef4444' : p <= 2 ? '#f59e0b' : p <= 3 ? '#3ecf8e' : '#737373';
+        const priorityBg = (p) => p <= 1 ? 'rgba(239,68,68,0.1)' : p <= 2 ? 'rgba(245,158,11,0.1)' : p <= 3 ? 'rgba(62,207,142,0.1)' : 'rgba(115,115,115,0.1)';
+        const demandIcon = (d) => d === 'high' ? 'fa-arrow-up' : d === 'medium' ? 'fa-minus' : 'fa-arrow-down';
+
+        html += `<div class="cp-section glass-card">
+            <h4 class="cp-section-title"><i class="fas fa-crosshairs" style="color:var(--accent-primary)"></i> Skill Gaps <span class="cp-count">${skillGaps.length}</span></h4>
+            <div class="cp-gaps-grid">
+                ${skillGaps.slice(0, 10).map(g => {
+                    const gObj = typeof g === 'string' ? { skill: g, priority: 5, market_demand: 'low' } : g;
+                    const p = gObj.priority || 5;
+                    const d = gObj.market_demand || 'low';
+                    return `<div class="cp-gap-item">
+                        <div class="cp-gap-priority" style="background:${priorityBg(p)};color:${priorityColor(p)}">P${p}</div>
+                        <div class="cp-gap-body">
+                            <div class="cp-gap-skill">${gObj.skill || 'Skill'}</div>
+                            <div class="cp-gap-demand"><i class="fas ${demandIcon(d)}"></i> ${d} demand</div>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>`;
     }
 
+    // ── Learning Priorities ──
     if (learning.length) {
-        html += `<div class="career-plan-section"><h4>Learning Priorities</h4><ul>`;
-        learning.forEach(l => {
-            const text = typeof l === 'string' ? l : (l.text || l.title || JSON.stringify(l));
-            html += `<li>${text}</li>`;
-        });
-        html += `</ul></div>`;
+        html += `<div class="cp-section glass-card">
+            <h4 class="cp-section-title"><i class="fas fa-graduation-cap" style="color:var(--accent-primary)"></i> Learning Plan</h4>
+            <div class="cp-learning-list">
+                ${learning.map((l, i) => {
+                    const text = typeof l === 'string' ? l : (l.text || l.title || JSON.stringify(l));
+                    return `<div class="cp-learning-item">
+                        <div class="cp-learning-num">${i + 1}</div>
+                        <div class="cp-learning-text">${text}</div>
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>`;
     }
 
+    // ── Project Suggestions ──
+    if (projectsText) {
+        html += `<div class="cp-section glass-card">
+            <h4 class="cp-section-title"><i class="fas fa-diagram-project" style="color:var(--accent-primary)"></i> Portfolio Projects</h4>
+            <div class="cp-projects-text">${window.marked ? marked.parse(projectsText) : projectsText}</div>
+        </div>`;
+    }
+
+    // ── Timeline ──
     if (Object.keys(timeline).length) {
-        html += `<div class="career-plan-section"><h4>Timeline</h4><ul>`;
-        Object.entries(timeline).forEach(([k, v]) => {
-            if (k === 'total_estimated_months') return;
-            html += `<li><strong>${k.replace(/_/g, ' ')}:</strong> ${v}</li>`;
-        });
-        if (timeline.total_estimated_months) html += `<li><strong>Estimated total:</strong> ${timeline.total_estimated_months} months</li>`;
-        html += `</ul></div>`;
+        const totalMonths = timeline.total_estimated_months || '';
+        const phases = Object.entries(timeline).filter(([k]) => k !== 'total_estimated_months');
+
+        html += `<div class="cp-section glass-card">
+            <h4 class="cp-section-title"><i class="fas fa-timeline" style="color:var(--accent-primary)"></i> Timeline ${totalMonths ? `<span class="cp-timeline-total">${totalMonths} months estimated</span>` : ''}</h4>
+            <div class="cp-timeline">
+                ${phases.map(([key, value], i) => {
+                    const label = key.replace(/_/g, ' ').replace(/^phase \d+ /, '').replace(/weeks?/g, 'wk');
+                    return `<div class="cp-timeline-item">
+                        <div class="cp-timeline-dot"></div>
+                        ${i < phases.length - 1 ? '<div class="cp-timeline-line"></div>' : ''}
+                        <div class="cp-timeline-content">
+                            <div class="cp-timeline-label">${label}</div>
+                            <div class="cp-timeline-text">${value}</div>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>`;
     }
 
-    if (strategy) html += `<div class="career-plan-section"><h4>Application Strategy</h4><div class="career-plan-text">${window.marked ? marked.parse(strategy) : strategy}</div></div>`;
-
-    html += `</div>`;
     return html;
 }
 
@@ -703,7 +764,7 @@ function renderInterviewFeedback(data) {
         html += `<div class="interview-fb-section"><h4>Areas to Improve</h4><ul>${improvements.map(s => `<li>${s}</li>`).join('')}</ul></div>`;
     }
     if (modelAnswer) {
-        html += `<div class="interview-fb-section"><h4>Model Answer</h4><div class="interview-model-answer">${modelAnswer}</div></div>`;
+        html += `<div class="interview-fb-section"><h4>Model Answer</h4><div class="interview-model-answer">${window.marked ? marked.parse(modelAnswer) : modelAnswer}</div></div>`;
     }
 
     const total = interviewSession.total_questions || interviewSession.questions.length;

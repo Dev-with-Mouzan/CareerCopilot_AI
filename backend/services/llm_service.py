@@ -182,10 +182,25 @@ class ModelRouter:
 
     # ── LangChain model factory ────────────────────────────────────────────
 
+    def _resolve_api_key(self, provider: str, explicit_key: str) -> str | None:
+        """Resolve API key: explicit param > Settings fields > None (lets LangChain check env)."""
+        if explicit_key:
+            return explicit_key
+        s = self._settings
+        key_map = {
+            "gemini": s.gemini_api_key,
+            "groq": s.groq_api_key,
+            "openai": s.openai_api_key,
+            "deepseek": s.deepseek_api_key,
+            "qwen": s.qwen_api_key,
+        }
+        resolved = key_map.get(provider, "")
+        return resolved or None
+
     def _build_chat_model(self, model: str, *, temperature: float, max_tokens: int, api_key: str = ""):
         """Create the appropriate LangChain chat model for a provider/model string."""
         provider, model_name = self._split_model(model)
-        key = api_key or None  # None -> fall back to env var if configured
+        key = self._resolve_api_key(provider, api_key)
 
         if provider == "gemini":
             from langchain_google_genai import ChatGoogleGenerativeAI

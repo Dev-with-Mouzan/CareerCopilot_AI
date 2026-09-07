@@ -6,7 +6,7 @@
     <title>CareerCopilot AI — Your AI-Powered Career Command Center</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -466,23 +466,68 @@
                     </div>
                 </div>
                 <div class="resume-content">
-                    <div id="upload-zone" class="upload-zone glass-card">
+                    <div id="upload-zone" class="upload-zone">
                         <div class="upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
                         <h3>Drop your resume here</h3>
-                        <p>or click to browse PDF files</p>
+                        <p>or click to browse — PDF files only</p>
                         <input type="file" id="resume-file-input" accept=".pdf" hidden>
                         <button class="btn btn-primary" id="upload-btn">
                             <i class="fas fa-upload"></i> Choose File
                         </button>
                     </div>
-                    <div id="resume-card" class="resume-card glass-card hidden">
+                    <!-- Tips (shown before upload) -->
+                    <div id="resume-tips" class="resume-tips">
+                        <h3 class="resume-tips-title"><i class="fas fa-lightbulb"></i> Tips for a strong resume</h3>
+                        <div class="resume-tips-grid">
+                            <div class="resume-tips-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Keep it concise — 1 to 2 pages is ideal</span>
+                            </div>
+                            <div class="resume-tips-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Use action verbs to describe achievements</span>
+                            </div>
+                            <div class="resume-tips-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Include measurable results and metrics</span>
+                            </div>
+                            <div class="resume-tips-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Tailor keywords to match the job description</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Next steps (shown after upload) -->
+                    <div id="resume-next-steps" class="resume-next-steps hidden">
+                        <h3 class="resume-next-title"><i class="fas fa-arrow-right"></i> What you can do next</h3>
+                        <div class="resume-next-grid">
+                            <button class="resume-next-card" onclick="navigateTo('jobs')">
+                                <div class="resume-next-icon" style="background:rgba(62,207,142,0.1);color:var(--accent-primary)"><i class="fas fa-briefcase"></i></div>
+                                <h4>Find matching jobs</h4>
+                                <p>AI-powered job search based on your skills and experience</p>
+                                <span class="resume-next-link">Start now <i class="fas fa-arrow-right"></i></span>
+                            </button>
+                            <button class="resume-next-card" onclick="navigateTo('career')">
+                                <div class="resume-next-icon" style="background:rgba(139,92,246,0.1);color:var(--accent-accent)"><i class="fas fa-chart-bar"></i></div>
+                                <h4>Get your ATS score</h4>
+                                <p>See how your resume performs against automated screening</p>
+                                <span class="resume-next-link">Start now <i class="fas fa-arrow-right"></i></span>
+                            </button>
+                            <button class="resume-next-card" onclick="navigateTo('interview')">
+                                <div class="resume-next-icon" style="background:rgba(245,158,11,0.1);color:var(--accent-tertiary)"><i class="fas fa-comments"></i></div>
+                                <h4>Mock interview</h4>
+                                <p>Practice with AI-generated questions from your resume</p>
+                                <span class="resume-next-link">Start now <i class="fas fa-arrow-right"></i></span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="resume-card" class="resume-card hidden">
                         <div class="resume-card-header">
                             <div class="resume-file-info">
                                 <i class="fas fa-file-pdf"></i>
                                 <span id="resume-filename">resume.pdf</span>
                             </div>
                             <div class="resume-actions">
-                                <button class="btn btn-ghost btn-sm" id="analyze-ats-btn"><i class="fas fa-clipboard-check"></i> ATS Score</button>
                                 <button class="btn btn-ghost btn-sm btn-danger" id="delete-resume-btn"><i class="fas fa-trash"></i></button>
                             </div>
                         </div>
@@ -495,12 +540,14 @@
                                 <div class="resume-stat-label">Sections</div>
                                 <div class="resume-stat-value" id="resume-sections">—</div>
                             </div>
-                            <div class="resume-stat-item">
-                                <div class="resume-stat-label">ATS Score</div>
-                                <div class="resume-stat-value" id="resume-ats-score">—</div>
+                        </div>
+                        <div class="resume-profile" id="resume-profile">
+                            <div class="resume-profile-empty">
+                                <i class="fas fa-sparkles"></i>
+                                <p>Upload complete. Your resume has been parsed and is ready for analysis.</p>
+                                <span>Use the actions below to get matched jobs, ATS scores, or practice interviews.</span>
                             </div>
                         </div>
-                        <div class="resume-profile" id="resume-profile"></div>
                     </div>
                 </div>
             </section>
@@ -575,7 +622,7 @@
                 <div class="section-header">
                     <div>
                         <h2 class="section-title"><i class="fas fa-route"></i> Career Plan</h2>
-                        <p class="section-subtitle">AI-generated career roadmap</p>
+                        <p class="section-subtitle">AI-generated career roadmap with technologies, languages & platforms</p>
                     </div>
                 </div>
                 <div class="career-content">
@@ -610,6 +657,35 @@
                         </div>
                     </div>
                     <div id="career-plan-result" class="hidden" style="margin-top:20px"></div>
+                    <!-- Roadmap Legend -->
+                    <div id="career-roadmap-legend" class="hidden" style="margin-top:24px">
+                        <div class="roadmap-legend glass-card">
+                            <div class="roadmap-legend-title"><i class="fas fa-sitemap"></i> Roadmap Legend</div>
+                            <div class="roadmap-legend-grid">
+                                <div class="roadmap-legend-item">
+                                    <div class="legend-icon tech"><i class="fas fa-cogs"></i></div>
+                                    <div>
+                                        <div class="legend-label">Technologies</div>
+                                        <div class="legend-desc">Tools, frameworks, platforms to master</div>
+                                    </div>
+                                </div>
+                                <div class="roadmap-legend-item">
+                                    <div class="legend-icon lang"><i class="fas fa-code"></i></div>
+                                    <div>
+                                        <div class="legend-label">Languages</div>
+                                        <div class="legend-desc">Programming languages to learn</div>
+                                    </div>
+                                </div>
+                                <div class="roadmap-legend-item">
+                                    <div class="legend-icon platform"><i class="fas fa-server"></i></div>
+                                    <div>
+                                        <div class="legend-label">Platforms</div>
+                                        <div class="legend-desc">How systems & services work internally</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
