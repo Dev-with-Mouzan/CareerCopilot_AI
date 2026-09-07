@@ -1782,6 +1782,82 @@ select { cursor: pointer; }
     font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;
 }
 
+/* Roadmap: technologies / languages / platforms */
+.cp-roadmap-phase {
+    position: relative; padding-bottom: 24px; padding-left: 28px;
+}
+.cp-roadmap-phase:last-child { padding-bottom: 0; }
+.cp-roadmap-dot {
+    position: absolute; left: 0; top: 4px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--accent-primary); border: 2px solid var(--bg-secondary);
+    z-index: 1;
+}
+.cp-roadmap-line {
+    position: absolute; left: 5px; top: 18px; bottom: 0;
+    width: 2px; background: var(--border-color);
+}
+.cp-roadmap-body { min-width: 0; }
+.cp-roadmap-phase-name {
+    font-size: 0.88rem; font-weight: 700; color: var(--text-primary);
+    margin-bottom: 10px; letter-spacing: -0.01em;
+}
+.cp-roadmap-group { margin-bottom: 10px; }
+.cp-roadmap-group:last-of-type { margin-bottom: 0; }
+.cp-roadmap-group-label {
+    font-size: 0.68rem; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+}
+.cp-roadmap-group-label i { font-size: 0.72rem; color: var(--accent-primary); }
+.cp-roadmap-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cp-roadmap-chip {
+    font-size: 0.72rem; font-weight: 500; padding: 4px 10px;
+    border-radius: var(--radius-full); border: 1px solid transparent;
+}
+.cp-chip-technologies {
+    background: rgba(62,207,142,0.08); color: var(--accent-primary);
+    border-color: rgba(62,207,142,0.2);
+}
+.cp-chip-languages {
+    background: rgba(139,92,246,0.1); color: #a78bfa;
+    border-color: rgba(139,92,246,0.25);
+}
+.cp-chip-platforms {
+    background: rgba(245,158,11,0.08); color: #f59e0b;
+    border-color: rgba(245,158,11,0.25);
+}
+.cp-roadmap-why {
+    margin-top: 10px; font-size: 0.78rem; color: var(--text-muted);
+    display: flex; align-items: flex-start; gap: 6px; line-height: 1.5;
+}
+.cp-roadmap-why i { color: var(--accent-primary); margin-top: 2px; }
+
+/* Roadmap legend */
+.roadmap-legend { padding: 20px 24px; }
+.roadmap-legend-title {
+    font-size: 0.95rem; font-weight: 700;
+    display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+}
+.roadmap-legend-title i { color: var(--accent-primary); }
+.roadmap-legend-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;
+}
+.roadmap-legend-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px; background: var(--bg-tertiary); border-radius: var(--radius-sm);
+}
+.legend-icon {
+    width: 38px; height: 38px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center; font-size: 0.85rem;
+    flex-shrink: 0;
+}
+.legend-icon.tech { background: rgba(62,207,142,0.1); color: var(--accent-primary); }
+.legend-icon.lang { background: rgba(139,92,246,0.1); color: #a78bfa; }
+.legend-icon.platform { background: rgba(245,158,11,0.1); color: #f59e0b; }
+.legend-label { font-size: 0.85rem; font-weight: 600; color: var(--text-primary); }
+.legend-desc { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+
 /* Strategy */
 .cp-strategy-text {
     font-size: 0.85rem; line-height: 1.7; color: var(--text-secondary);

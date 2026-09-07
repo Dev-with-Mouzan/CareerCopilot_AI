@@ -201,6 +201,120 @@ async def generate_expertise_milestones_node(state: CareerState) -> dict:
         raise RuntimeError(f"Failed to generate application strategy: {exc}") from exc
 
 
+async def generate_roadmap_node(state: CareerState) -> dict:
+    """Use LLM to generate a phased technology/language/platform roadmap.
+
+    Falls back to a deterministic roadmap derived from skill gaps when the
+    LLM call fails, so the career tab always renders a usable roadmap.
+    """
+    target_role = state.get("target_role", "")
+    gaps = state.get("skill_gaps", [])
+    gap_skills = [g.get("skill", "") for g in gaps if isinstance(g, dict)]
+    skills_str = ", ".join(filter(None, gap_skills[:8])) or "core skills for the role"
+
+    prompt = (
+        f"Target role: {target_role}\n"
+        f"Skills to master: {skills_str}\n\n"
+        "Create a learning roadmap with 3 phases (foundation, intermediate, advanced). "
+        "For EACH phase, list exactly three groups as plain lines using these prefixes:\n"
+        "TECHNOLOGIES: <comma-separated technologies/tools/frameworks to learn>\n"
+        "LANGUAGES: <comma-separated programming languages to learn>\n"
+        "PLATFORMS: <comma-separated platforms whose internal working must be understood>\n"
+        "Then end the phase with a line 'WHY: <one sentence on why this phase matters>'.\n"
+        "Keep each list to 4-6 items. Be specific to the role, not generic."
+    )
+
+    try:
+        result = await _router.complete(
+            messages=[{"role": "user", "content": prompt}],
+            category=TaskCategory.CAREER_STRATEGY,
+        )
+        roadmap = _parse_roadmap_text(str(result))
+    except Exception as exc:
+        logger.warning("LLM roadmap failed, using fallback: %s", exc)
+        roadmap = _fallback_roadmap(target_role, gap_skills)
+
+    if not roadmap:
+        roadmap = _fallback_roadmap(target_role, gap_skills)
+
+    plan = state.get("plan", {})
+    return {"plan": {**plan, "roadmap": roadmap}}
+
+
+def _parse_roadmap_text(raw: str) -> list[dict]:
+    """Parse the LLM's phased roadmap text into structured phases."""
+    phases: list[dict] = []
+    current: dict | None = None
+
+    def _flush() -> None:
+        nonlocal current
+        if current and (current["technologies"] or current["languages"] or current["platforms"]):
+            phases.append(current)
+        current = None
+
+    for line in raw.splitlines():
+        line = line.strip().lstrip("#*- ")
+        if not line:
+            continue
+        lowered = line.lower()
+        if lowered.startswith(("phase", "stage", "level", "step")) and ":" in line:
+            _flush()
+            current = {
+                "name": line.split(":", 1)[0].strip(),
+                "technologies": [],
+                "languages": [],
+                "platforms": [],
+                "why": "",
+            }
+            continue
+        if current is None:
+            continue
+        if lowered.startswith("technologies:"):
+            current["technologies"] = _split_list(line[len("technologies:"):])
+        elif lowered.startswith("languages:"):
+            current["languages"] = _split_list(line[len("languages:"):])
+        elif lowered.startswith("platforms:"):
+            current["platforms"] = _split_list(line[len("platforms:"):])
+        elif lowered.startswith("why:"):
+            current["why"] = line[len("why:"):].strip()
+    _flush()
+    return phases
+
+
+def _split_list(value: str) -> list[str]:
+    """Split a comma-separated list and trim markdown/numbering noise."""
+    items = [i.strip(" -*#").strip() for i in value.split(",")]
+    return [i for i in items if i][:8]
+
+
+def _fallback_roadmap(target_role: str, gap_skills: list[str]) -> list[dict]:
+    """Deterministic 3-phase roadmap when the LLM is unavailable."""
+    skills = [s for s in gap_skills if s][:6] or ["fundamentals"]
+    return [
+        {
+            "name": "Phase 1 — Foundation",
+            "technologies": skills[:2],
+            "languages": ["Python or JavaScript"],
+            "platforms": ["Linux basics", "Git & GitHub"],
+            "why": "Build core fundamentals before specializing.",
+        },
+        {
+            "name": "Phase 2 — Intermediate",
+            "technologies": skills[2:4] or ["databases"],
+            "languages": ["SQL"],
+            "platforms": ["How web servers work", "How databases work"],
+            "why": "Apply skills by building real projects end-to-end.",
+        },
+        {
+            "name": "Phase 3 — Advanced",
+            "technologies": skills[4:6] or ["cloud services"],
+            "languages": ["Go or Rust (optional depth)"],
+            "platforms": ["How cloud platforms work", "How CI/CD pipelines work"],
+            "why": "Reach production-grade depth expected for the role.",
+        },
+    ]
+
+
 async def synthesize_plan_node(state: CareerState) -> dict:
     """Assemble the final CareerPlan from all computed components."""
     plan_data = state.get("plan", {})
@@ -219,6 +333,15 @@ async def synthesize_plan_node(state: CareerState) -> dict:
         interview_prep="",
         application_strategy=plan_data.get("expertise_milestones", ""),
     )
+
+    plan_dict = career_plan.model_dump()
+    # Attach raw projects text for frontend rendering
+    if projects_text:
+        plan_dict["projects_suggestion"] = projects_text
+    # Attach structured roadmap (technologies/languages/platforms per phase)
+    roadmap = plan_data.get("roadmap", [])
+    if roadmap:
+        plan_dict["roadmap"] = roadmap
 
     plan_dict = career_plan.model_dump()
     # Attach raw projects text for frontend rendering
@@ -264,6 +387,7 @@ def build_career_graph() -> StateGraph:
     graph.add_node("generate_learning_plan", generate_learning_plan_node)
     graph.add_node("generate_projects", generate_projects_node)
     graph.add_node("generate_timeline", generate_timeline_node)
+    graph.add_node("generate_roadmap", generate_roadmap_node)
     graph.add_node("generate_expertise_milestones", generate_expertise_milestones_node)
     graph.add_node("synthesize_plan", synthesize_plan_node)
     graph.add_node("error_node", error_node)
@@ -278,7 +402,8 @@ def build_career_graph() -> StateGraph:
     )
     graph.add_edge("generate_learning_plan", "generate_projects")
     graph.add_edge("generate_projects", "generate_timeline")
-    graph.add_edge("generate_timeline", "generate_expertise_milestones")
+    graph.add_edge("generate_timeline", "generate_roadmap")
+    graph.add_edge("generate_roadmap", "generate_expertise_milestones")
     graph.add_edge("generate_expertise_milestones", "synthesize_plan")
     graph.add_edge("synthesize_plan", END)
     graph.add_edge("error_node", END)

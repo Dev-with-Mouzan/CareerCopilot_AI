@@ -527,6 +527,8 @@ async function generateCareerPlan() {
         const result = document.getElementById('career-plan-result');
         result.classList.remove('hidden');
         result.innerHTML = renderCareerPlan(data);
+        const legend = document.getElementById('career-roadmap-legend');
+        if (legend) legend.classList.remove('hidden');
         document.getElementById('export-plan-btn').style.display = 'inline-flex';
         showToast('Career plan generated', 'success');
         updateDashboardProgress();
@@ -543,6 +545,7 @@ function renderCareerPlan(data) {
     const learning = plan.learning_priorities || [];
     const timeline = plan.timeline || {};
     const projectsText = plan.projects_suggestion || '';
+    const roadmap = plan.roadmap || [];
 
     let html = '';
 
@@ -595,6 +598,36 @@ function renderCareerPlan(data) {
                     </div>`;
                 }).join('')}
             </div>
+        </div>`;
+    }
+
+    // ── Roadmap: Technologies / Languages / Platforms ──
+    if (Array.isArray(roadmap) && roadmap.length) {
+        const iconFor = { technologies: 'fa-cogs', languages: 'fa-code', platforms: 'fa-server' };
+        const labelFor = { technologies: 'Technologies', languages: 'Languages', platforms: 'Platforms' };
+        html += `<div class="cp-section glass-card">
+            <h4 class="cp-section-title"><i class="fas fa-map-signs" style="color:var(--accent-primary)"></i> Learning Roadmap</h4>
+            ${roadmap.map((phase, i) => {
+                const name = phase.name || `Phase ${i + 1}`;
+                const groups = ['technologies', 'languages', 'platforms']
+                    .map(key => ({ key, items: (phase[key] || []).filter(Boolean) }))
+                    .filter(g => g.items.length);
+                return `<div class="cp-roadmap-phase">
+                    <div class="cp-roadmap-dot"></div>
+                    ${i < roadmap.length - 1 ? '<div class="cp-roadmap-line"></div>' : ''}
+                    <div class="cp-roadmap-body">
+                        <div class="cp-roadmap-phase-name">${name}</div>
+                        ${groups.map(g => `
+                        <div class="cp-roadmap-group">
+                            <div class="cp-roadmap-group-label"><i class="fas ${iconFor[g.key]}"></i> ${labelFor[g.key]}</div>
+                            <div class="cp-roadmap-chips">
+                                ${g.items.map(item => `<span class="cp-roadmap-chip cp-chip-${g.key}">${item}</span>`).join('')}
+                            </div>
+                        </div>`).join('')}
+                        ${phase.why ? `<div class="cp-roadmap-why"><i class="fas fa-lightbulb"></i> ${phase.why}</div>` : ''}
+                    </div>
+                </div>`;
+            }).join('')}
         </div>`;
     }
 
