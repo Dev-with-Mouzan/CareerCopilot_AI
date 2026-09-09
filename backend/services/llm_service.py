@@ -99,7 +99,7 @@ _TASK_MODEL_MAP: dict[TaskCategory, str] = {
     TaskCategory.CHAT: "fast",
     TaskCategory.ATS_EXPLANATION: "strong",
     TaskCategory.RESUME_REWRITE: "strong",
-    TaskCategory.CAREER_STRATEGY: "strong",
+    TaskCategory.CAREER_STRATEGY: "fast",
 }
 
 # Provider prefixes that must go through an OpenAI-compatible endpoint

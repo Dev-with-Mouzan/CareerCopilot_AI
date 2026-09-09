@@ -29,7 +29,11 @@ router = APIRouter(prefix="/jobs")
 class _SearchBody(BaseModel):
     target_role: str | None = None
     keywords: str | None = None
-    location: str | None = None
+    location: str = "All Countries"
+    resume_id: str | None = None
+
+
+class _AnalyzeBody(BaseModel):
     resume_id: str | None = None
 
 
@@ -38,7 +42,12 @@ async def search_jobs(
     body: _SearchBody,
     user: UserProfile = Depends(get_current_user),
 ):
-    """Search jobs either manually (keywords/location) or based on a resume."""
+    """Search jobs either manually (keywords/location) or based on a resume.
+
+    Location is mandatory. Defaults to 'All Countries' if not specified.
+    When a specific location is given, results are filtered accordingly.
+    If no jobs match the location, a clear message is returned.
+    """
     target = (body.target_role or body.keywords or "").strip()
     resume_id = uuid.UUID(body.resume_id) if body.resume_id else None
 
@@ -88,7 +97,7 @@ async def search_jobs(
             resume_id=resume_id or uuid.UUID("00000000-0000-0000-0000-000000000000"),
             target_role=target,
             resume_profile=resume_profile or {},
-            user_location=body.location or "",
+            user_location=body.location or "All Countries",
         )
     except Exception as exc:
         logger.error("Job pipeline failed: %s", exc)
@@ -134,7 +143,11 @@ async def get_job(job_id: uuid.UUID):
 
 
 @router.post("/{job_id}/analyze")
-async def analyze_job(job_id: uuid.UUID, user: UserProfile = Depends(get_current_user)):
+async def analyze_job(
+    job_id: uuid.UUID,
+    body: _AnalyzeBody = _AnalyzeBody(),
+    user: UserProfile = Depends(get_current_user),
+):
     """Run ATS analysis of the user's resume against a single matched job."""
     from backend.graphs.ats_graph import ats_pipeline
 
@@ -152,8 +165,21 @@ async def analyze_job(job_id: uuid.UUID, user: UserProfile = Depends(get_current
     if target_job is None:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    resumes = list_resumes(user.id)
-    resume = resumes[0] if resumes else None
+    # Find resume: prefer explicit resume_id, then fall back to first resume for user
+    resume = None
+    if body.resume_id:
+        try:
+            resume = get_resume(uuid.UUID(body.resume_id))
+        except (ValueError, TypeError):
+            pass
+        # Verify ownership
+        if resume and resume.user_id != user.id:
+            resume = None
+
+    if resume is None:
+        resumes = list_resumes(user.id)
+        resume = resumes[0] if resumes else None
+
     if resume is None:
         logger.warning("ATS analyze: no resume found for user=%s", user.id)
         raise HTTPException(status_code=400, detail="Upload a resume first to run ATS analysis")

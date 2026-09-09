@@ -26,9 +26,7 @@ from backend.services.job_deduplicator import deduplicate
 from backend.services.job_normalizer import (
     extract_skills_from_description,
     normalize_generic_job,
-    normalize_jobicy_job,
     normalize_linkedin_job,
-    normalize_remotive_job,
 )
 from backend.services.job_sources.manager import JobSourceManager
 from backend.services.llm_service import ModelRouter, TaskCategory
@@ -109,8 +107,6 @@ async def normalize_jobs_node(state: JobState) -> dict:
     normalized: list[dict] = []
 
     normalizers = {
-        "remotive": normalize_remotive_job,
-        "jobicy": normalize_jobicy_job,
         "linkedin": normalize_linkedin_job,
     }
 
@@ -165,11 +161,26 @@ async def embed_jobs_node(state: JobState) -> dict:
     return {"candidate_jobs": deduped}
 
 
+_ALL_LOCATIONS = {"all countries", "all", "worldwide", "global", "everywhere"}
+
+
+def _is_all_locations(loc: str) -> bool:
+    """Check if the location means 'show all' (no filtering)."""
+    return loc.lower().strip() in _ALL_LOCATIONS
+
+
 async def filter_candidates_node(state: JobState) -> dict:
-    """Pre-filter candidates based on basic criteria (remove obviously irrelevant)."""
+    """Pre-filter candidates based on basic criteria (remove obviously irrelevant).
+
+    Location filtering:
+    - 'All Countries' / 'All' / 'Worldwide' → no location filtering (show everything)
+    - Specific location → strict match (remote jobs always pass)
+    - Empty location → treat as 'All Countries'
+    """
     candidates = state.get("candidate_jobs", [])
     keywords = [k.lower() for k in state.get("query_keywords", [])]
     user_location = state.get("user_location", "").lower().strip()
+    show_all_locations = _is_all_locations(user_location) or not user_location
 
     filtered = []
     for job_data in candidates:
@@ -182,26 +193,25 @@ async def filter_candidates_node(state: JobState) -> dict:
         if not any(kw in combined_text for kw in keywords):
             continue
 
-        # Location filter: strictly match user's requested location
-        # remote jobs are always relevant; empty-location jobs are skipped
-        job_location = (job_data.get("location", "") or "").lower()
-        is_remote = job_data.get("remote", False)
-        if user_location and not is_remote:
-            if not job_location:
-                # No location listed — skip (user asked for a specific place)
-                continue
-            # Normalize for comparison: strip common suffixes
-            def _loc_key(loc: str) -> str:
-                return loc.replace(", ", ",").replace(" metro area", "").replace(" area", "").strip()
-            ul = _loc_key(user_location)
-            jl = _loc_key(job_location)
-            # Require at least one to contain the other, or share a city token
-            if not (ul in jl or jl in ul):
-                # Fallback: check if any comma-separated token matches
-                ul_tokens = set(t.strip() for t in ul.split(",") if len(t.strip()) > 2)
-                jl_tokens = set(t.strip() for t in jl.split(",") if len(t.strip()) > 2)
-                if not (ul_tokens & jl_tokens):
+        # Location filter
+        if not show_all_locations:
+            job_location = (job_data.get("location", "") or "").lower()
+            is_remote = job_data.get("remote", False)
+            if not is_remote:
+                if not job_location:
+                    # No location listed — skip (user asked for a specific place)
                     continue
+                # Normalize for comparison: strip common suffixes
+                def _loc_key(loc: str) -> str:
+                    return loc.replace(", ", ",").replace(" metro area", "").replace(" area", "").strip()
+                ul = _loc_key(user_location)
+                jl = _loc_key(job_location)
+                # Require at least one to contain the other, or share a city token
+                if not (ul in jl or jl in ul):
+                    ul_tokens = set(t.strip() for t in ul.split(",") if len(t.strip()) > 2)
+                    jl_tokens = set(t.strip() for t in jl.split(",") if len(t.strip()) > 2)
+                    if not (ul_tokens & jl_tokens):
+                        continue
 
         filtered.append(job_data)
 
@@ -261,11 +271,15 @@ async def score_matches_node(state: JobState) -> dict:
         # Location score: compare job location against user preference
         is_remote = job_data.get("remote", False)
         job_location = (job_data.get("location", "") or "").lower()
-        def _loc_key(loc: str) -> str:
-            return loc.replace(", ", ",").replace(" metro area", "").replace(" area", "").strip()
-        if is_remote:
+
+        if _is_all_locations(user_location):
+            # User wants all locations — neutral score for everyone
+            location_score = 0.8
+        elif is_remote:
             location_score = 0.95
         elif user_location and job_location:
+            def _loc_key(loc: str) -> str:
+                return loc.replace(", ", ",").replace(" metro area", "").replace(" area", "").strip()
             ul = _loc_key(user_location)
             jl = _loc_key(job_location)
             if ul in jl or jl in ul:
@@ -310,8 +324,13 @@ async def score_matches_node(state: JobState) -> dict:
 async def generate_recommendations_node(state: JobState) -> dict:
     """Use LLM to generate a natural-language recommendation summary."""
     matched = state.get("matched_jobs", [])
+    user_location = state.get("user_location", "")
+
     if not matched:
-        return {"recommendations": ["No matching jobs found. Try broadening your search."]}
+        if _is_all_locations(user_location):
+            return {"recommendations": ["No jobs found matching your criteria. Try broadening your search keywords."]}
+        else:
+            return {"recommendations": [f"No jobs available for this role in {user_location}. Try a different location, search remotely, or broaden your keywords."]}
 
     top_jobs = matched[:5]
     job_summaries = []
@@ -323,8 +342,13 @@ async def generate_recommendations_node(state: JobState) -> dict:
             f"missing: {', '.join(match.get('missing_skills', [])[:3])})"
         )
 
+    location_context = ""
+    if user_location and not _is_all_locations(user_location):
+        location_context = f"Location preference: {user_location}\n"
+
     prompt = (
         f"Target role: {state.get('target_role', 'software engineer')}\n"
+        f"{location_context}"
         f"Top {len(top_jobs)} matched jobs:\n" + "\n".join(job_summaries)
         + "\n\nProvide 2-3 brief strategic recommendations for the user."
     )

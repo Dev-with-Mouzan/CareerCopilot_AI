@@ -290,7 +290,7 @@ function setJobsMode(mode) {
 
 async function searchJobs() {
     const keywords = document.getElementById('job-keywords').value;
-    const location = document.getElementById('job-location').value;
+    const location = document.getElementById('job-location').value.trim() || 'All Countries';
     if (!keywords.trim()) return showToast('Enter a job title or keywords', 'error');
     showLoading('Searching jobs...');
     try {
@@ -302,7 +302,13 @@ async function searchJobs() {
         hideLoading();
         jobsData = (data.jobs || []).slice(0, 15);
         renderJobs();
-        showToast(`Found ${jobsData.length} jobs`, jobsData.length ? 'success' : 'info');
+        if (jobsData.length === 0) {
+            const locText = location.toLowerCase() === 'all countries' ? '' : ` in ${location}`;
+            showToast(`No jobs found for this role${locText}. Try a different location or broaden your search.`, 'info');
+        } else {
+            const locText = location.toLowerCase() === 'all countries' ? '' : ` in ${location}`;
+            showToast(`Found ${jobsData.length} jobs${locText}`, 'success');
+        }
     } catch (err) {
         hideLoading();
         showToast(err.message || 'Search failed', 'error');
@@ -311,17 +317,24 @@ async function searchJobs() {
 
 async function searchResumeJobs() {
     if (!resumeData?.resume_id) return showToast('Upload a resume first', 'error');
+    const location = document.getElementById('job-location').value.trim() || 'All Countries';
     showLoading('Matching jobs to your resume...');
     try {
         const data = await apiFetch(`${API_BASE}/jobs/search`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ resume_id: resumeData.resume_id }),
+            body: JSON.stringify({ resume_id: resumeData.resume_id, location }),
         }).then(r => r.json());
         hideLoading();
         jobsData = (data.jobs || []).slice(0, 15);
         renderJobs();
-        showToast(`Found ${jobsData.length} matched jobs`, jobsData.length ? 'success' : 'info');
+        if (jobsData.length === 0) {
+            const locText = location.toLowerCase() === 'all countries' ? '' : ` in ${location}`;
+            showToast(`No matching jobs found for your profile${locText}. Try a different location or broaden your search.`, 'info');
+        } else {
+            const locText = location.toLowerCase() === 'all countries' ? '' : ` in ${location}`;
+            showToast(`Found ${jobsData.length} matched jobs${locText}`, 'success');
+        }
     } catch (err) {
         hideLoading();
         showToast(err.message || 'Matching failed', 'error');
@@ -388,7 +401,7 @@ function renderJobs() {
             </div>` : ''}
             ${desc ? `<div class="job-desc">${desc.slice(0, 200)}${desc.length > 200 ? '...' : ''}</div>` : ''}
             <div class="job-actions">
-                <button class="btn btn-primary btn-sm" onclick="analyzeJob(${i})"><i class="fas fa-clipboard-check"></i> ATS</button>
+                ${resumeData?.resume_id ? `<button class="btn btn-primary btn-sm" onclick="analyzeJob(${i})"><i class="fas fa-clipboard-check"></i> ATS</button>` : `<button class="btn btn-ghost btn-sm" onclick="showToast('Upload a resume first to run ATS analysis', 'info')" title="Upload a resume first"><i class="fas fa-clipboard-check"></i> ATS</button>`}
                 <a class="btn btn-primary btn-sm job-apply-link" href="${job.source_url || `https://www.google.com/search?q=${encodeURIComponent((job.title || '') + ' ' + (job.company || '') + ' job apply')}`}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Apply Now</a>
             </div>
         </div>
@@ -478,43 +491,16 @@ function closeAtsModal() {
 }
 
 // ── Career Plan ─────────────────────────────────────────────────────────────
-let careerMode = 'field';
 
 function initCareer() {
     document.getElementById('generate-plan-btn').addEventListener('click', generateCareerPlan);
     document.getElementById('export-plan-btn').addEventListener('click', exportPlan);
-    document.getElementById('career-mode-field').addEventListener('click', () => setCareerMode('field'));
-    document.getElementById('career-mode-resume').addEventListener('click', () => setCareerMode('resume'));
-}
-
-function setCareerMode(mode) {
-    careerMode = mode;
-    document.querySelectorAll('.career-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
-    document.getElementById('career-field-form').classList.toggle('hidden', mode !== 'field');
-    document.getElementById('career-resume-hint').classList.toggle('hidden', mode !== 'resume');
-    if (mode === 'resume') {
-        const status = document.getElementById('career-resume-status');
-        if (resumeData?.resume_id) {
-            status.textContent = 'Your resume is ready to use.';
-            status.style.color = 'var(--accent-primary)';
-        } else {
-            status.textContent = 'Upload a resume first, or use Describe Your Field mode.';
-            status.style.color = '#ef4444';
-        }
-    }
 }
 
 async function generateCareerPlan() {
     const targetField = document.getElementById('career-target-field').value.trim();
-    const payload = {};
-    if (careerMode === 'resume') {
-        if (!resumeData?.resume_id) return showToast('Upload a resume first, or switch to Describe Your Field', 'error');
-        payload.resume_id = resumeData.resume_id;
-        payload.target_role = targetField || '';
-    } else {
-        if (!targetField) return showToast('Describe your target career field', 'error');
-        payload.target_role = targetField;
-    }
+    if (!targetField) return showToast('Describe your target career field', 'error');
+    const payload = { target_role: targetField };
     showLoading('Generating career plan...');
     try {
         const data = await apiFetch(`${API_BASE}/career/plan`, {
@@ -542,10 +528,9 @@ function renderCareerPlan(data) {
     const plan = data.plan || {};
     const target = data.target_role || '';
     const skillGaps = plan.skill_gaps || data.skill_gaps || [];
-    const learning = plan.learning_priorities || [];
-    const timeline = plan.timeline || {};
-    const projectsText = plan.projects_suggestion || '';
-    const roadmap = plan.roadmap || [];
+    const roadmapSteps = plan.roadmap_steps || [];
+    const portfolioProjects = plan.portfolio_projects || [];
+    const appStrategy = plan.application_strategy || {};
 
     let html = '';
 
@@ -585,81 +570,101 @@ function renderCareerPlan(data) {
         </div>`;
     }
 
-    // ── Learning Priorities ──
-    if (learning.length) {
+    // ── Step-by-Step Roadmap ──
+    if (roadmapSteps.length) {
         html += `<div class="cp-section glass-card">
-            <h4 class="cp-section-title"><i class="fas fa-graduation-cap" style="color:var(--accent-primary)"></i> Learning Plan</h4>
-            <div class="cp-learning-list">
-                ${learning.map((l, i) => {
-                    const text = typeof l === 'string' ? l : (l.text || l.title || JSON.stringify(l));
-                    return `<div class="cp-learning-item">
-                        <div class="cp-learning-num">${i + 1}</div>
-                        <div class="cp-learning-text">${text}</div>
-                    </div>`;
-                }).join('')}
-            </div>
-        </div>`;
-    }
+            <h4 class="cp-section-title"><i class="fas fa-map-signs" style="color:var(--accent-primary)"></i> Step-by-Step Roadmap</h4>
+            <div class="cp-steps-list">
+                ${roadmapSteps.map((step, i) => {
+                    const stepNum = step.step || (i + 1);
+                    const title = step.title || `Step ${stepNum}`;
+                    const duration = step.duration || '';
+                    const topics = step.topics || [];
+                    const resources = step.resources || [];
+                    const practice = step.practice || '';
 
-    // ── Roadmap: Technologies / Languages / Platforms ──
-    if (Array.isArray(roadmap) && roadmap.length) {
-        const iconFor = { technologies: 'fa-cogs', languages: 'fa-code', platforms: 'fa-server' };
-        const labelFor = { technologies: 'Technologies', languages: 'Languages', platforms: 'Platforms' };
-        html += `<div class="cp-section glass-card">
-            <h4 class="cp-section-title"><i class="fas fa-map-signs" style="color:var(--accent-primary)"></i> Learning Roadmap</h4>
-            ${roadmap.map((phase, i) => {
-                const name = phase.name || `Phase ${i + 1}`;
-                const groups = ['technologies', 'languages', 'platforms']
-                    .map(key => ({ key, items: (phase[key] || []).filter(Boolean) }))
-                    .filter(g => g.items.length);
-                return `<div class="cp-roadmap-phase">
-                    <div class="cp-roadmap-dot"></div>
-                    ${i < roadmap.length - 1 ? '<div class="cp-roadmap-line"></div>' : ''}
-                    <div class="cp-roadmap-body">
-                        <div class="cp-roadmap-phase-name">${name}</div>
-                        ${groups.map(g => `
-                        <div class="cp-roadmap-group">
-                            <div class="cp-roadmap-group-label"><i class="fas ${iconFor[g.key]}"></i> ${labelFor[g.key]}</div>
-                            <div class="cp-roadmap-chips">
-                                ${g.items.map(item => `<span class="cp-roadmap-chip cp-chip-${g.key}">${item}</span>`).join('')}
-                            </div>
-                        </div>`).join('')}
-                        ${phase.why ? `<div class="cp-roadmap-why"><i class="fas fa-lightbulb"></i> ${phase.why}</div>` : ''}
-                    </div>
-                </div>`;
-            }).join('')}
-        </div>`;
-    }
-
-    // ── Project Suggestions ──
-    if (projectsText) {
-        html += `<div class="cp-section glass-card">
-            <h4 class="cp-section-title"><i class="fas fa-diagram-project" style="color:var(--accent-primary)"></i> Portfolio Projects</h4>
-            <div class="cp-projects-text">${window.marked ? marked.parse(projectsText) : projectsText}</div>
-        </div>`;
-    }
-
-    // ── Timeline ──
-    if (Object.keys(timeline).length) {
-        const totalMonths = timeline.total_estimated_months || '';
-        const phases = Object.entries(timeline).filter(([k]) => k !== 'total_estimated_months');
-
-        html += `<div class="cp-section glass-card">
-            <h4 class="cp-section-title"><i class="fas fa-timeline" style="color:var(--accent-primary)"></i> Timeline ${totalMonths ? `<span class="cp-timeline-total">${totalMonths} months estimated</span>` : ''}</h4>
-            <div class="cp-timeline">
-                ${phases.map(([key, value], i) => {
-                    const label = key.replace(/_/g, ' ').replace(/^phase \d+ /, '').replace(/weeks?/g, 'wk');
-                    return `<div class="cp-timeline-item">
-                        <div class="cp-timeline-dot"></div>
-                        ${i < phases.length - 1 ? '<div class="cp-timeline-line"></div>' : ''}
-                        <div class="cp-timeline-content">
-                            <div class="cp-timeline-label">${label}</div>
-                            <div class="cp-timeline-text">${value}</div>
+                    return `<div class="cp-step-card">
+                        <div class="cp-step-header">
+                            <div class="cp-step-num">${stepNum}</div>
+                            <div class="cp-step-title">${title}</div>
+                            ${duration ? `<div class="cp-step-duration"><i class="fas fa-clock"></i> ${duration}</div>` : ''}
+                        </div>
+                        <div class="cp-step-body">
+                            ${topics.length ? `
+                            <div class="cp-step-topics">
+                                <div class="cp-step-label"><i class="fas fa-list-check"></i> What to learn</div>
+                                <ul>
+                                    ${topics.map(t => `<li>${t}</li>`).join('')}
+                                </ul>
+                            </div>` : ''}
+                            ${resources.length ? `
+                            <div class="cp-step-resources">
+                                <div class="cp-step-label"><i class="fas fa-book"></i> Resources</div>
+                                <div class="cp-step-chips">
+                                    ${resources.map(r => `<span class="cp-step-chip">${r}</span>`).join('')}
+                                </div>
+                            </div>` : ''}
+                            ${practice ? `
+                            <div class="cp-step-practice">
+                                <div class="cp-step-label"><i class="fas fa-code"></i> Practice</div>
+                                <div class="cp-step-practice-text">${practice}</div>
+                            </div>` : ''}
                         </div>
                     </div>`;
                 }).join('')}
             </div>
         </div>`;
+    }
+
+    // ── Portfolio Projects ──
+    if (portfolioProjects.length) {
+        const diffColor = (d) => d === 'beginner' ? '#3ecf8e' : d === 'intermediate' ? '#f59e0b' : '#ef4444';
+        html += `<div class="cp-section glass-card">
+            <h4 class="cp-section-title"><i class="fas fa-diagram-project" style="color:var(--accent-primary)"></i> Portfolio Projects</h4>
+            <div class="cp-projects-grid">
+                ${portfolioProjects.map(p => {
+                    const skills = p.skills_practiced || [];
+                    const techs = p.technologies || [];
+                    return `<div class="cp-project-card">
+                        <div class="cp-project-header">
+                            <div class="cp-project-name">${p.name || 'Project'}</div>
+                            <div class="cp-project-diff" style="color:${diffColor(p.difficulty)}">${(p.difficulty || '').charAt(0).toUpperCase() + (p.difficulty || '').slice(1)}</div>
+                        </div>
+                        <div class="cp-project-desc">${p.description || ''}</div>
+                        <div class="cp-project-meta">
+                            ${p.estimated_time ? `<span class="cp-project-meta-pill"><i class="fas fa-clock"></i> ${p.estimated_time}</span>` : ''}
+                            ${techs.map(t => `<span class="cp-project-tech-chip">${t}</span>`).join('')}
+                        </div>
+                        ${skills.length ? `<div class="cp-project-skills"><div class="cp-step-label"><i class="fas fa-graduation-cap"></i> Skills practiced</div><div class="cp-step-chips">${skills.map(s => `<span class="cp-step-chip">${s}</span>`).join('')}</div></div>` : ''}
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>`;
+    }
+
+    // ── Application Strategy ──
+    if (appStrategy.resume_tips || appStrategy.portfolio_tips || appStrategy.networking || appStrategy.job_search) {
+        const sections = [
+            { key: 'resume_tips', icon: 'fa-file-alt', title: 'Resume Tips', items: appStrategy.resume_tips },
+            { key: 'portfolio_tips', icon: 'fa-briefcase', title: 'Portfolio Tips', items: appStrategy.portfolio_tips },
+            { key: 'networking', icon: 'fa-users', title: 'Networking', items: appStrategy.networking },
+            { key: 'job_search', icon: 'fa-search', title: 'Job Search', items: appStrategy.job_search },
+        ].filter(s => s.items && s.items.length);
+
+        if (sections.length) {
+            html += `<div class="cp-section glass-card">
+                <h4 class="cp-section-title"><i class="fas fa-rocket" style="color:var(--accent-primary)"></i> How to Apply</h4>
+                <div class="cp-strategy-grid">
+                    ${sections.map(s => `
+                    <div class="cp-strategy-card">
+                        <div class="cp-strategy-title"><i class="fas ${s.icon}"></i> ${s.title}</div>
+                        <ul class="cp-strategy-list">
+                            ${s.items.map(item => `<li>${item}</li>`).join('')}
+                        </ul>
+                    </div>`).join('')}
+                </div>
+            </div>`;
+        }
     }
 
     return html;
@@ -1073,7 +1078,7 @@ function reviewAvatar(name) {
     return (parts[0][0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
 }
 
-const _avatarColors = ['#3ecf8e', '#8b5cf6', '#f59e0b', '#3b82f6', '#ec4899', '#14b8a6'];
+const _avatarColors = ['#3ecf8e', '#1aad6d', '#00c573', '#22c55e', '#17a566', '#15b070'];
 function avatarColor(name) {
     let hash = 0;
     for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;

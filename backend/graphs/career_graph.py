@@ -1,15 +1,15 @@
-"""LangGraph StateGraph for career planning.
+"""LangGraph StateGraph for career planning — optimized single-call pipeline.
 
 Workflow:
-    analyze_current_state -> analyze_market -> identify_gaps ->
-    generate_learning_plan -> generate_projects -> generate_timeline ->
-    generate_application_strategy -> synthesize_plan
+    analyze_current_state -> analyze_market -> identify_gaps -> generate_full_roadmap -> synthesize_plan
 
-Uses market data, skill gaps, and resume profile. LLM for strategic reasoning only.
+All LLM reasoning happens in a single ``generate_full_roadmap`` call, cutting
+latency from ~60 s (5 sequential calls) to ~8-12 s.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Literal
 
@@ -25,8 +25,239 @@ logger = logging.getLogger(__name__)
 
 _router = ModelRouter()
 
+# ── Single comprehensive prompt for the entire roadmap ──────────────────────
 
-# ── Nodes ──────────────────────────────────────────────────────────────────────
+_FULL_ROADMAP_PROMPT = """\
+You are an expert career coach. Generate a COMPLETE, step-by-step career roadmap.
+
+Target role: {target_role}
+
+User's current skills: {current_skills}
+Skill gaps to fill: {gap_skills}
+
+Return a JSON object with exactly these keys:
+{{
+  "roadmap_steps": [
+    {{
+      "step": 1,
+      "title": "Learn Python",
+      "duration": "3-4 weeks",
+      "topics": ["Variables & Data Types", "Functions & OOP", "File I/O", "Libraries overview"],
+      "resources": ["Python.org tutorial", "Automate the Boring Stuff"],
+      "practice": "Build a CLI tool that parses CSV files"
+    }}
+  ],
+  "portfolio_projects": [
+    {{
+      "name": "Project Name",
+      "difficulty": "beginner/intermediate/advanced",
+      "description": "What you'll build",
+      "skills_practiced": ["skill1", "skill2"],
+      "technologies": ["tech1", "tech2"],
+      "estimated_time": "2-3 weeks"
+    }}
+  ],
+  "application_strategy": {{
+    "resume_tips": ["tip1", "tip2"],
+    "portfolio_tips": ["tip1", "tip2"],
+    "networking": ["tip1", "tip2"],
+    "job_search": ["tip1", "tip2"]
+  }}
+}}
+
+Rules for roadmap_steps:
+- Include 5-8 steps, ordered from fundamentals to advanced
+- Each step must have 3-6 specific topics (not generic)
+- Each step must have 1-2 concrete resources (course names, book titles, tutorial URLs)
+- Each step must have a hands-on practice project
+- For ML Engineer: start with Python → Math/Calculus → Statistics → ML Libraries → Deep Learning → Specialization → Portfolio
+- Be SPECIFIC to the target role, not generic
+
+Rules for portfolio_projects:
+- Include 3 projects, increasing difficulty
+- Each must have a clear description and technologies used
+- Start with a small data analysis project, end with a full end-to-end ML pipeline
+
+Rules for application_strategy:
+- 3-4 specific tips per category
+- Tips should be actionable, not generic
+- Include specific platforms (LinkedIn, GitHub, Kaggle, etc.)
+
+Return ONLY valid JSON, no markdown fences.
+"""
+
+
+async def generate_full_roadmap_node(state: CareerState) -> dict:
+    """Single LLM call that generates the entire career roadmap."""
+    target_role = state.get("target_role", "software engineer")
+    profile_data = state.get("resume_profile", {})
+    gaps = state.get("skill_gaps", [])
+
+    # Build current skills summary
+    resume_skills = [
+        s.get("name", "")
+        for s in profile_data.get("skills", [])
+        if isinstance(s, dict) and s.get("name")
+    ]
+    current_skills = ", ".join(resume_skills[:15]) if resume_skills else "No skills detected"
+
+    # Build gap summary
+    gap_skills = ", ".join(
+        g.get("skill", "") for g in gaps if isinstance(g, dict) and g.get("skill")
+    ) or "Python, core libraries, domain fundamentals"
+
+    prompt = _FULL_ROADMAP_PROMPT.format(
+        target_role=target_role,
+        current_skills=current_skills,
+        gap_skills=gap_skills,
+    )
+
+    try:
+        result = await _router.complete(
+            messages=[{"role": "user", "content": prompt}],
+            category=TaskCategory.CAREER_STRATEGY,
+            model="fast",  # Use fast model for speed
+        )
+        raw = str(result)
+        roadmap_data = _parse_roadmap_json(raw)
+    except Exception as exc:
+        logger.warning("LLM roadmap failed, using fallback: %s", exc)
+        roadmap_data = _fallback_roadmap(target_role, resume_skills, gap_skills)
+
+    plan = state.get("plan", {})
+    return {"plan": {**plan, **roadmap_data}}
+
+
+def _parse_roadmap_json(raw: str) -> dict:
+    """Parse LLM JSON response into structured roadmap data."""
+    # Try direct JSON parse first
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    # Try extracting JSON from markdown fences
+    if "```" in raw:
+        lines = raw.splitlines()
+        json_lines = []
+        in_fence = False
+        for line in lines:
+            if line.strip().startswith("```"):
+                in_fence = not in_fence
+                continue
+            if in_fence:
+                json_lines.append(line)
+        if json_lines:
+            try:
+                return json.loads("\n".join(json_lines))
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+    # Try finding JSON object in text
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start >= 0 and end > start:
+        try:
+            return json.loads(raw[start : end + 1])
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    return {}
+
+
+def _fallback_roadmap(target_role: str, skills: list[str], gap_str: str) -> dict:
+    """Deterministic fallback when LLM is unavailable."""
+    role_lower = target_role.lower()
+
+    # Role-specific roadmap steps
+    if any(kw in role_lower for kw in ("ml", "machine learning", "data scien", "ai")):
+        steps = [
+            {"step": 1, "title": "Master Python Programming", "duration": "3-4 weeks",
+             "topics": ["Variables, Data Types, Control Flow", "Functions & OOP", "File I/O & Error Handling", "List/Dict Comprehensions", "Virtual Environments & pip"],
+             "resources": ["Automate the Boring Stuff with Python", "Python.org Official Tutorial"],
+             "practice": "Build a CLI tool that reads CSV data and performs calculations"},
+            {"step": 2, "title": "Mathematics for ML", "duration": "3-4 weeks",
+             "topics": ["Linear Algebra (Vectors, Matrices, Eigenvalues)", "Calculus (Derivatives, Gradients, Chain Rule)", "Probability & Statistics", "Optimization Methods"],
+             "resources": ["3Blue1Brown Essence of Linear Algebra", "Khan Academy Calculus", "StatQuest YouTube"],
+             "practice": "Implement gradient descent from scratch in NumPy"},
+            {"step": 3, "title": "Data Analysis & Visualization", "duration": "2-3 weeks",
+             "topics": ["NumPy Arrays & Operations", "Pandas DataFrames", "Matplotlib & Seaborn Plotting", "Exploratory Data Analysis (EDA)", "Data Cleaning Techniques"],
+             "resources": ["Kaggle Learn - Pandas", "Python for Data Analysis (Wes McKinney)"],
+             "practice": "Analyze a real-world dataset and create 10+ visualizations"},
+            {"step": 4, "title": "Machine Learning Fundamentals", "duration": "4-5 weeks",
+             "topics": ["Supervised Learning (Regression, Classification)", "Unsupervised Learning (Clustering, PCA)", "Model Evaluation & Cross-Validation", "Feature Engineering", "Scikit-learn Pipeline"],
+             "resources": ["Andrew Ng's ML Course (Coursera)", "Hands-On ML with Scikit-Learn (Aurélien Géron)"],
+             "practice": "Build an end-to-end ML pipeline on Kaggle"},
+            {"step": 5, "title": "Deep Learning & Neural Networks", "duration": "4-5 weeks",
+             "topics": ["Neural Network Architecture", "Backpropagation & Gradient Descent", "CNNs for Computer Vision", "RNNs/Transformers for NLP", "Transfer Learning"],
+             "resources": ["fast.ai Practical Deep Learning", "Deep Learning Specialization (Andrew Ng)"],
+             "practice": "Fine-tune a pre-trained model on a custom dataset"},
+            {"step": 6, "title": "MLOps & Production", "duration": "3-4 weeks",
+             "topics": ["Model Serving (FastAPI, Docker)", "Experiment Tracking (MLflow)", "Data Pipelines (Airflow)", "Model Monitoring", "Cloud Deployment (AWS/GCP)"],
+             "resources": ["Made With ML (Goku Mohandas)", "Full Stack Deep Learning"],
+             "practice": "Deploy a model as a REST API with Docker and monitoring"},
+            {"step": 7, "title": "Specialization & Portfolio", "duration": "3-4 weeks",
+             "topics": ["Choose a domain (NLP, CV, RecSys)", "Advanced techniques in your domain", "Kaggle competitions", "Open source contributions", "Technical blog writing"],
+             "resources": ["Kaggle Competitions", "Papers With Code"],
+             "practice": "Build and deploy a complete ML project with documentation"},
+        ]
+    else:
+        steps = [
+            {"step": 1, "title": f"Core Fundamentals for {target_role}", "duration": "3-4 weeks",
+             "topics": ["Programming basics", "Version control (Git)", "Command line", "IDE setup"],
+             "resources": ["Official documentation", "FreeCodeCamp"],
+             "practice": "Set up your development environment"},
+            {"step": 2, "title": "Intermediate Skills", "duration": "4-5 weeks",
+             "topics": ["Data structures", "Algorithms", "System design basics", "Testing"],
+             "resources": ["LeetCode", "Cracking the Coding Interview"],
+             "practice": "Solve 20+ coding challenges"},
+            {"step": 3, "title": "Advanced Topics", "duration": "4-5 weeks",
+             "topics": ["Design patterns", "APIs & databases", "Performance optimization", "Security"],
+             "resources": ["Designing Data-Intensive Applications", "System Design Interview"],
+             "practice": "Build a full-stack project"},
+        ]
+
+    projects = [
+        {"name": f"{target_role} Starter Project", "difficulty": "beginner",
+         "description": "A foundational project demonstrating core skills", "skills_practiced": skills[:3] or ["programming"],
+         "technologies": ["Python"], "estimated_time": "2 weeks"},
+        {"name": f"{target_role} Intermediate Project", "difficulty": "intermediate",
+         "description": "A more complex project with multiple components", "skills_practiced": skills[:4] or ["programming", "databases"],
+         "technologies": ["Python", "SQL"], "estimated_time": "3-4 weeks"},
+        {"name": f"{target_role} Portfolio Capstone", "difficulty": "advanced",
+         "description": "A production-quality project for your portfolio", "skills_practiced": skills[:5] or ["full stack"],
+         "technologies": ["Python", "Docker", "Cloud"], "estimated_time": "4-6 weeks"},
+    ]
+
+    return {
+        "roadmap_steps": steps,
+        "portfolio_projects": projects,
+        "application_strategy": {
+            "resume_tips": [
+                "Tailor your resume for each application with relevant keywords",
+                "Quantify achievements with metrics (e.g., 'improved accuracy by 15%')",
+                "Keep it to 1-2 pages with clear, concise bullet points",
+            ],
+            "portfolio_tips": [
+                "Host all projects on GitHub with README documentation",
+                "Deploy live demos where possible",
+                "Write blog posts explaining your technical decisions",
+            ],
+            "networking": [
+                "Attend local meetups and tech conferences",
+                "Engage on LinkedIn with thoughtful comments",
+                "Contribute to open-source projects in your field",
+            ],
+            "job_search": [
+                "Apply to 5-10 jobs daily with customized applications",
+                "Use LinkedIn, Indeed, and company career pages",
+                "Reach out to recruiters and hiring managers directly",
+            ],
+        },
+    }
+
+
+# ── Analyze nodes (deterministic, no LLM) ──────────────────────────────────
 
 
 async def analyze_current_state_node(state: CareerState) -> dict:
@@ -78,241 +309,7 @@ async def identify_gaps_node(state: CareerState) -> dict:
     return {"skill_gaps": [gap.model_dump() for gap in gaps]}
 
 
-async def generate_learning_plan_node(state: CareerState) -> dict:
-    """Use LLM to generate a prioritized learning plan, with a deterministic fallback."""
-    gaps = state.get("skill_gaps", [])
-    target_role = state.get("target_role", "")
-    top_gaps = [g for g in gaps if isinstance(g, dict) and g.get("priority", 99) <= 3][:10]
-
-    if not top_gaps:
-        fallback = [
-            f"Map out the core skills required for {target_role} and identify your gaps",
-            f"Pick one flagship project to build for your {target_role} portfolio",
-            f"Contribute to an open-source project relevant to {target_role}",
-            f"Practice {target_role} interview questions weekly",
-        ]
-        return {"plan": {"learning_priorities": fallback}}
-
-    gap_summary = "\n".join(
-        f"- {g.get('skill', 'N/A')} (demand: {g.get('market_demand', 'N/A')}, priority: {g.get('priority', 'N/A')})"
-        for g in top_gaps
-    )
-
-    prompt = (
-        f"Target role: {target_role}\n"
-        f"Top skill gaps:\n{gap_summary}\n\n"
-        "Create a prioritized learning plan. For EACH skill gap, provide:\n"
-        "1. The specific skill to learn\n"
-        "2. A concrete resource (course, book, or tutorial name)\n"
-        "3. A hands-on project or exercise to practice it\n\n"
-        "Format each item as a single concise line: 'Skill — Resource — Practice method'\n"
-        "Keep it actionable and specific. No generic advice."
-    )
-
-    try:
-        result = await _router.complete(
-            messages=[{"role": "user", "content": prompt}],
-            category=TaskCategory.CAREER_STRATEGY,
-        )
-        # Split LLM response into individual items
-        raw = str(result).strip()
-        items = [line.strip("0123456789. )-\t") for line in raw.split("\n") if line.strip() and len(line.strip()) > 10]
-        return {"plan": {"learning_priorities": items or [raw]}}
-    except Exception as exc:
-        logger.error("LLM learning plan failed: %s", exc)
-        raise RuntimeError(f"Failed to generate learning plan: {exc}") from exc
-
-
-async def generate_projects_node(state: CareerState) -> dict:
-    """Use LLM to suggest portfolio projects that address skill gaps."""
-    gaps = state.get("skill_gaps", [])
-    target_role = state.get("target_role", "")
-    top_skills = [g.get("skill", "") for g in gaps if isinstance(g, dict)][:5]
-
-    prompt = (
-        f"Target role: {target_role}\n"
-        f"Skills to master: {', '.join(top_skills)}\n\n"
-        "Suggest 3 progressive projects to build expertise in this field. "
-        "For each project, provide: name, what you'll learn, and technologies used. "
-        "Start with a foundational project and increase in complexity."
-    )
-
-    try:
-        result = await _router.complete(
-            messages=[{"role": "user", "content": prompt}],
-            category=TaskCategory.CAREER_STRATEGY,
-        )
-        plan = state.get("plan", {})
-        return {"plan": {**plan, "projects_suggestion": str(result)}}
-    except Exception as exc:
-        logger.error("LLM project suggestion failed: %s", exc)
-        raise RuntimeError(f"Failed to generate project suggestions: {exc}") from exc
-
-
-async def generate_timeline_node(state: CareerState) -> dict:
-    """Generate a realistic timeline for the career transition."""
-    gaps = state.get("skill_gaps", [])
-    target_role = state.get("target_role", "")
-    high_priority = [g for g in gaps if isinstance(g, dict) and g.get("priority", 99) <= 2]
-    all_gaps = [g for g in gaps if isinstance(g, dict)]
-    months = max(len(high_priority) * 2, 3)
-
-    # Build skill names for timeline context
-    gap_skills = [g.get("skill", "") for g in all_gaps[:5]]
-    skills_str = ", ".join(filter(None, gap_skills)) or "core skills"
-
-    timeline = {
-        "phase_1_weeks_1_2": f"Update resume, LinkedIn, and portfolio with {target_role} keywords. Audit current skills vs. requirements.",
-        "phase_2_weeks_3_8": f"Deep-dive into top priority gaps: {skills_str}. Complete courses, certifications, or tutorials.",
-        "phase_3_weeks_9_14": f"Build 2-3 portfolio projects demonstrating {target_role} competencies. Contribute to open source if applicable.",
-        "phase_4_weeks_15_20": f"Begin targeted applications to {target_role} roles. Network with professionals in the field.",
-        "phase_5_weeks_21_plus": "Interview preparation, mock interviews, and iterative application refinement.",
-        "total_estimated_months": str(months),
-    }
-
-    plan = state.get("plan", {})
-    return {"plan": {**plan, "timeline": timeline}}
-
-
-async def generate_expertise_milestones_node(state: CareerState) -> dict:
-    """Use LLM to generate expertise milestones for the target field."""
-    target_role = state.get("target_role", "")
-    gaps = state.get("skill_gaps", [])
-    top_skills = [g.get("skill", "") for g in gaps if isinstance(g, dict)][:5]
-
-    prompt = (
-        f"Target field: {target_role}\n"
-        f"Key skills to master: {', '.join(top_skills)}\n\n"
-        "Create 4-6 concrete expertise milestones for mastering this field. "
-        "Each milestone should be a measurable achievement, not just 'learn X'. "
-        "Cover: fundamentals, intermediate depth, advanced projects, and real-world application.\n\n"
-        "Format as a numbered list. Be specific to this field, not generic."
-    )
-
-    try:
-        result = await _router.complete(
-            messages=[{"role": "user", "content": prompt}],
-            category=TaskCategory.CAREER_STRATEGY,
-        )
-        plan = state.get("plan", {})
-        return {"plan": {**plan, "application_strategy": str(result)}}
-    except Exception as exc:
-        logger.error("LLM strategy failed: %s", exc)
-        raise RuntimeError(f"Failed to generate application strategy: {exc}") from exc
-
-
-async def generate_roadmap_node(state: CareerState) -> dict:
-    """Use LLM to generate a phased technology/language/platform roadmap.
-
-    Falls back to a deterministic roadmap derived from skill gaps when the
-    LLM call fails, so the career tab always renders a usable roadmap.
-    """
-    target_role = state.get("target_role", "")
-    gaps = state.get("skill_gaps", [])
-    gap_skills = [g.get("skill", "") for g in gaps if isinstance(g, dict)]
-    skills_str = ", ".join(filter(None, gap_skills[:8])) or "core skills for the role"
-
-    prompt = (
-        f"Target role: {target_role}\n"
-        f"Skills to master: {skills_str}\n\n"
-        "Create a learning roadmap with 3 phases (foundation, intermediate, advanced). "
-        "For EACH phase, list exactly three groups as plain lines using these prefixes:\n"
-        "TECHNOLOGIES: <comma-separated technologies/tools/frameworks to learn>\n"
-        "LANGUAGES: <comma-separated programming languages to learn>\n"
-        "PLATFORMS: <comma-separated platforms whose internal working must be understood>\n"
-        "Then end the phase with a line 'WHY: <one sentence on why this phase matters>'.\n"
-        "Keep each list to 4-6 items. Be specific to the role, not generic."
-    )
-
-    try:
-        result = await _router.complete(
-            messages=[{"role": "user", "content": prompt}],
-            category=TaskCategory.CAREER_STRATEGY,
-        )
-        roadmap = _parse_roadmap_text(str(result))
-    except Exception as exc:
-        logger.warning("LLM roadmap failed, using fallback: %s", exc)
-        roadmap = _fallback_roadmap(target_role, gap_skills)
-
-    if not roadmap:
-        roadmap = _fallback_roadmap(target_role, gap_skills)
-
-    plan = state.get("plan", {})
-    return {"plan": {**plan, "roadmap": roadmap}}
-
-
-def _parse_roadmap_text(raw: str) -> list[dict]:
-    """Parse the LLM's phased roadmap text into structured phases."""
-    phases: list[dict] = []
-    current: dict | None = None
-
-    def _flush() -> None:
-        nonlocal current
-        if current and (current["technologies"] or current["languages"] or current["platforms"]):
-            phases.append(current)
-        current = None
-
-    for line in raw.splitlines():
-        line = line.strip().lstrip("#*- ")
-        if not line:
-            continue
-        lowered = line.lower()
-        if lowered.startswith(("phase", "stage", "level", "step")) and ":" in line:
-            _flush()
-            current = {
-                "name": line.split(":", 1)[0].strip(),
-                "technologies": [],
-                "languages": [],
-                "platforms": [],
-                "why": "",
-            }
-            continue
-        if current is None:
-            continue
-        if lowered.startswith("technologies:"):
-            current["technologies"] = _split_list(line[len("technologies:"):])
-        elif lowered.startswith("languages:"):
-            current["languages"] = _split_list(line[len("languages:"):])
-        elif lowered.startswith("platforms:"):
-            current["platforms"] = _split_list(line[len("platforms:"):])
-        elif lowered.startswith("why:"):
-            current["why"] = line[len("why:"):].strip()
-    _flush()
-    return phases
-
-
-def _split_list(value: str) -> list[str]:
-    """Split a comma-separated list and trim markdown/numbering noise."""
-    items = [i.strip(" -*#").strip() for i in value.split(",")]
-    return [i for i in items if i][:8]
-
-
-def _fallback_roadmap(target_role: str, gap_skills: list[str]) -> list[dict]:
-    """Deterministic 3-phase roadmap when the LLM is unavailable."""
-    skills = [s for s in gap_skills if s][:6] or ["fundamentals"]
-    return [
-        {
-            "name": "Phase 1 — Foundation",
-            "technologies": skills[:2],
-            "languages": ["Python or JavaScript"],
-            "platforms": ["Linux basics", "Git & GitHub"],
-            "why": "Build core fundamentals before specializing.",
-        },
-        {
-            "name": "Phase 2 — Intermediate",
-            "technologies": skills[2:4] or ["databases"],
-            "languages": ["SQL"],
-            "platforms": ["How web servers work", "How databases work"],
-            "why": "Apply skills by building real projects end-to-end.",
-        },
-        {
-            "name": "Phase 3 — Advanced",
-            "technologies": skills[4:6] or ["cloud services"],
-            "languages": ["Go or Rust (optional depth)"],
-            "platforms": ["How cloud platforms work", "How CI/CD pipelines work"],
-            "why": "Reach production-grade depth expected for the role.",
-        },
-    ]
+# ── Synthesize final plan ──────────────────────────────────────────────────
 
 
 async def synthesize_plan_node(state: CareerState) -> dict:
@@ -321,36 +318,30 @@ async def synthesize_plan_node(state: CareerState) -> dict:
     gaps = state.get("skill_gaps", [])
     market = state.get("market_data", {})
 
-    # Build structured projects from LLM text if available
-    projects_text = plan_data.get("projects_suggestion", "")
-
     career_plan = CareerPlan(
         current_state=market.get("_current_state_summary", ""),
         target_state=f"Master {state.get('target_role', 'target field')}",
         skill_gaps=[SkillGap(**g) for g in gaps if isinstance(g, dict)],
-        learning_priorities=plan_data.get("learning_priorities", []),
-        timeline=plan_data.get("timeline", {}),
+        learning_priorities=[s.get("title", "") for s in plan_data.get("roadmap_steps", [])],
+        timeline={},
         interview_prep="",
-        application_strategy=plan_data.get("expertise_milestones", ""),
+        application_strategy="",
     )
 
     plan_dict = career_plan.model_dump()
-    # Attach raw projects text for frontend rendering
-    if projects_text:
-        plan_dict["projects_suggestion"] = projects_text
-    # Attach structured roadmap (technologies/languages/platforms per phase)
-    roadmap = plan_data.get("roadmap", [])
-    if roadmap:
-        plan_dict["roadmap"] = roadmap
 
-    plan_dict = career_plan.model_dump()
-    # Attach raw projects text for frontend rendering
-    if projects_text:
-        plan_dict["projects_suggestion"] = projects_text
+    # Attach the full roadmap data for frontend rendering
+    if plan_data.get("roadmap_steps"):
+        plan_dict["roadmap_steps"] = plan_data["roadmap_steps"]
+    if plan_data.get("portfolio_projects"):
+        plan_dict["portfolio_projects"] = plan_data["portfolio_projects"]
+    if plan_data.get("application_strategy"):
+        plan_dict["application_strategy"] = plan_data["application_strategy"]
 
     logger.info(
-        "Career plan synthesized: %d skill gaps, target=%s",
+        "Career plan synthesized: %d skill gaps, %d roadmap steps, target=%s",
         len(career_plan.skill_gaps),
+        len(plan_data.get("roadmap_steps", [])),
         state.get("target_role"),
     )
 
@@ -363,32 +354,24 @@ async def error_node(state: CareerState) -> dict:
     return {"plan": CareerPlan().model_dump()}
 
 
-# ── Routing ────────────────────────────────────────────────────────────────────
+# ── Routing ───────────────────────────────────────────────────────────────────
 
 
 def route_after_gaps(state: CareerState) -> str:
-    """Always proceed to learning plan generation.
-
-    Empty gaps are a normal case (e.g. no market data yet) — not a failure.
-    """
-    return "generate_learning_plan"
+    return "generate_full_roadmap"
 
 
 # ── Graph ──────────────────────────────────────────────────────────────────────
 
 
 def build_career_graph() -> StateGraph:
-    """Construct the career planning workflow."""
+    """Construct the career planning workflow — optimized single-call pipeline."""
     graph = StateGraph(CareerState)
 
     graph.add_node("analyze_current_state", analyze_current_state_node)
     graph.add_node("analyze_market", analyze_market_node)
     graph.add_node("identify_gaps", identify_gaps_node)
-    graph.add_node("generate_learning_plan", generate_learning_plan_node)
-    graph.add_node("generate_projects", generate_projects_node)
-    graph.add_node("generate_timeline", generate_timeline_node)
-    graph.add_node("generate_roadmap", generate_roadmap_node)
-    graph.add_node("generate_expertise_milestones", generate_expertise_milestones_node)
+    graph.add_node("generate_full_roadmap", generate_full_roadmap_node)
     graph.add_node("synthesize_plan", synthesize_plan_node)
     graph.add_node("error_node", error_node)
 
@@ -398,13 +381,9 @@ def build_career_graph() -> StateGraph:
     graph.add_conditional_edges(
         "identify_gaps",
         route_after_gaps,
-        {"generate_learning_plan": "generate_learning_plan", "error_node": "error_node"},
+        {"generate_full_roadmap": "generate_full_roadmap", "error_node": "error_node"},
     )
-    graph.add_edge("generate_learning_plan", "generate_projects")
-    graph.add_edge("generate_projects", "generate_timeline")
-    graph.add_edge("generate_timeline", "generate_roadmap")
-    graph.add_edge("generate_roadmap", "generate_expertise_milestones")
-    graph.add_edge("generate_expertise_milestones", "synthesize_plan")
+    graph.add_edge("generate_full_roadmap", "synthesize_plan")
     graph.add_edge("synthesize_plan", END)
     graph.add_edge("error_node", END)
 

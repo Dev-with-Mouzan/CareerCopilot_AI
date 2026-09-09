@@ -18,7 +18,7 @@
         if (isLightTheme()) {
             return {
                 grid: 'rgba(0,0,0,0.04)',
-                edgeGrad: ['rgba(62,207,142,0.06)', 'rgba(139,92,246,0.04)', 'rgba(62,207,142,0.06)'],
+                edgeGrad: ['rgba(62,207,142,0.06)', 'rgba(26,173,109,0.04)', 'rgba(62,207,142,0.06)'],
                 edgeDash: 'rgba(0,0,0,0.04)',
                 nodeFill: 'rgba(255,255,255,0.9)',
                 nodeStroke: 'rgba(62,207,142,0.2)',
@@ -29,7 +29,7 @@
         }
         return {
             grid: 'rgba(255,255,255,0.008)',
-            edgeGrad: ['rgba(62,207,142,0.02)', 'rgba(139,92,246,0.015)', 'rgba(62,207,142,0.02)'],
+            edgeGrad: ['rgba(62,207,142,0.02)', 'rgba(26,173,109,0.015)', 'rgba(62,207,142,0.02)'],
             edgeDash: 'rgba(255,255,255,0.008)',
             nodeFill: 'rgba(23,23,23,0.8)',
             nodeStroke: 'rgba(62,207,142,',

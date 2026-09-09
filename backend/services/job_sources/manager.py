@@ -9,10 +9,10 @@ from typing import Sequence
 from backend.core.schemas import Job
 from backend.services.job_deduplicator import deduplicate as deduplicate_jobs
 from backend.services.job_sources.base import AbstractJobSource, SourceConfig, SourceError
+from backend.services.job_sources.adzuna import AdzunaSource
 from backend.services.job_sources.generic_scraper import GenericScraperSource
-from backend.services.job_sources.jobicy import JobicySource
 from backend.services.job_sources.linkedin import LinkedInSource
-from backend.services.job_sources.remotive import RemotiveSource
+from backend.services.job_sources.remoteok import RemoteOKSource
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +37,10 @@ class JobSourceManager:
         logger.info("Registered source: %s (priority=%d)", name, source.config.priority)
 
     def register_default_sources(self) -> None:
-        """Register all built-in sources."""
-        self.register(RemotiveSource())
-        self.register(JobicySource())
+        """Register all built-in sources: LinkedIn (broadest), RemoteOK (free), Adzuna (UK/EU)."""
         self.register(LinkedInSource())
+        self.register(RemoteOKSource())
+        self.register(AdzunaSource())
 
     def add_custom_scraper(self, url: str) -> None:
         source = GenericScraperSource(target_url=url)
